@@ -31,6 +31,10 @@ export default {
     'menu.exception.not-find': '404',
     'menu.exception.server-error': '500',
     'menu.exception.trigger': 'Trigger',
+    // grunts
+    'menu.grunts': 'Grunts',
+    'menu.grunts.list': 'Grunts List',
+
     'menu.account': 'Account',
     'menu.account.center': 'Account Center',
     'menu.account.settings': 'Account Settings',

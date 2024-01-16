@@ -202,6 +202,23 @@ export const asyncRouterMap = [
         ]
       },
 
+      // Grunts
+      {
+        path: '/grunts',
+        name: 'grunts',
+        component: RouteView,
+        redirect: '/grunts/list',
+        meta: { title: 'menu.grunts', icon: 'user', permission: ['table'] },
+        children: [
+          {
+            path: '/grunts/list',
+            name: 'gruntsList',
+            component: () => import('@/views/grunts/Grunts'),
+            meta: { title: 'menu.grunts.list', keepAlive: true, permission: ['table'] }
+          }
+        ]
+      },
+
       // account
       {
         path: '/account',

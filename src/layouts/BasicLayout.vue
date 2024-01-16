@@ -13,7 +13,9 @@
       广告代码 真实项目中请移除
       production remove this Ads
     -->
-    <ads v-if="isProPreviewSite && !collapsed"/>
+    <!--
+      <ads v-if="isProPreviewSite && !collapsed"/>
+    -->
     <!-- Ads end -->
 
     <!-- 1.0.0+ 版本 pro-layout 提供 API，
@@ -62,6 +64,7 @@ import defaultSettings from '@/config/defaultSettings'
 import RightContent from '@/components/GlobalHeader/RightContent'
 import GlobalFooter from '@/components/GlobalFooter'
 import Ads from '@/components/Other/CarbonAds'
+import { asyncRouterMap } from '@/config/router.config.js'
 
 export default {
   name: 'BasicLayout',
@@ -113,7 +116,8 @@ export default {
     })
   },
   created () {
-    const routes = this.mainMenu.find(item => item.path === '/')
+    // const routes = this.mainMenu.find(item => item.path === '/')
+    const routes = asyncRouterMap.find((item) => item.path === '/')
     this.menus = (routes && routes.children) || []
     // 处理侧栏收起状态
     this.$watch('collapsed', () => {
