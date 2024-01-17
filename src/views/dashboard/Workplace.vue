@@ -29,7 +29,7 @@
 
     <div>
       <a-row :gutter="24">
-        <a-col :xl="16" :lg="24" :md="24" :sm="24" :xs="24">
+        <a-col>
           <a-card
             class="project-list"
             :loading="loading"
@@ -78,54 +78,7 @@
             </a-list>
           </a-card>
         </a-col>
-        <a-col
-          style="padding: 0 12px"
-          :xl="8"
-          :lg="24"
-          :md="24"
-          :sm="24"
-          :xs="24">
-          <a-card
-            title="快速开始 / 便捷导航"
-            style="margin-bottom: 24px"
-            :bordered="false"
-            :body-style="{ padding: 0 }"
-          >
-            <div class="item-group">
-              <a>操作一</a>
-              <a>操作二</a>
-              <a>操作三</a>
-              <a>操作四</a>
-              <a>操作五</a>
-              <a>操作六</a>
-              <a-button size="small" type="primary" ghost icon="plus">添加</a-button>
-            </div>
-          </a-card>
-          <a-card
-            title="XX 指数"
-            style="margin-bottom: 24px"
-            :loading="radarLoading"
-            :bordered="false"
-            :body-style="{ padding: 0 }"
-          >
-            <div style="min-height: 400px;">
-              <!-- :scale="scale" :axis1Opts="axis1Opts" :axis2Opts="axis2Opts"  -->
-              <radar :data="radarData" />
-            </div>
-          </a-card>
-          <a-card :loading="loading" title="团队" :bordered="false">
-            <div class="members">
-              <a-row>
-                <a-col :span="12" v-for="(item, index) in teams" :key="index">
-                  <a>
-                    <a-avatar size="small" :src="item.avatar" />
-                    <span class="member">{{ item.name }}</span>
-                  </a>
-                </a-col>
-              </a-row>
-            </div>
-          </a-card>
-        </a-col>
+
       </a-row>
     </div>
   </page-header-wrapper>
