@@ -131,7 +131,8 @@ const vueConfig = {
         ws: false,
         changeOrigin: true
       }
-    }
+    },
+    https: true
   },
 
   // disable source map in production

@@ -8,6 +8,7 @@
 <script>
 import AvatarDropdown from './AvatarDropdown'
 import SelectLang from '@/components/SelectLang'
+import storage from 'store'
 
 export default {
   name: 'RightContent',
@@ -50,7 +51,7 @@ export default {
   mounted () {
     setTimeout(() => {
       this.currentUser = {
-        name: 'Serati Ma'
+        name: storage.get('User-Name')
       }
     }, 1500)
   }

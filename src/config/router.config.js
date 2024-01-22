@@ -43,6 +43,12 @@ export const asyncRouterMap = [
           }
         ]
       },
+      {
+        path: 'listeners',
+        name: 'listeners',
+        component: () => import('@/views/listener/Listener'),
+        meta: { title: 'menu.listeners', icon: 'user' }
+      },
       // forms
       {
         path: '/form',

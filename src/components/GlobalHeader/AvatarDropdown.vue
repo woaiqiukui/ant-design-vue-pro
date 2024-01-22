@@ -1,8 +1,9 @@
 <template>
   <a-dropdown v-if="currentUser && currentUser.name" placement="bottomRight">
     <span class="ant-pro-account-avatar">
-      <a-avatar size="small" src="https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png" class="antd-pro-global-header-index-avatar" />
-      <span>{{ currentUser.name }}</span>
+      <a-avatar size="small" :src="avatar" />
+      <!-- 在这里添加一些右侧内边距 -->
+      <span style="margin-left: 8px;">{{ currentUser.name }}</span>
     </span>
     <template v-slot:overlay>
       <a-menu class="ant-pro-drop-down menu" :selected-keys="[]">
@@ -29,6 +30,7 @@
 
 <script>
 import { Modal } from 'ant-design-vue'
+import storage from 'store'
 
 export default {
   name: 'AvatarDropdown',
@@ -40,6 +42,11 @@ export default {
     menu: {
       type: Boolean,
       default: true
+    }
+  },
+  data () {
+    return {
+      avatar: ''
     }
   },
   methods: {
@@ -64,6 +71,9 @@ export default {
         onCancel () {}
       })
     }
+  },
+  mounted () {
+    this.avatar = storage.get('User-Avatar')
   }
 }
 </script>
