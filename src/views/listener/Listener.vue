@@ -9,8 +9,28 @@
       >
         <template v-for="(col, i) in ['name', 'protocol', 'status', 'address', 'port']" :slot="col" slot-scope="text, record">
           <a-input
+            v-if="record.editable && col === 'name'"
             :key="col"
-            v-if="record.editable"
+            style="margin: -5px 0"
+            :value="text"
+            :placeholder="columns[i].title"
+            @change="e => handleChange(e.target.value, record.key, col)"
+          />
+          <a-select
+            v-else-if="record.editable && col === 'protocol'"
+            :key="col"
+            style="width: 100%; margin: -10px 0"
+            :value="text"
+            @change="value => handleChange(value, record.key, col)"
+          >
+            <a-select-option value="Https">Https</a-select-option>
+            <a-select-option value="Udp">Udp</a-select-option>
+            <a-select-option value="Tcp">Tcp</a-select-option>
+          </a-select>
+          <template v-else-if="col === 'status'">{{ record.editable ? 'Idle' : text }}</template>
+          <a-input
+            v-else-if="record.editable && (col === 'address' || col === 'port')"
+            :key="col"
             style="margin: -5px 0"
             :value="text"
             :placeholder="columns[i].title"
@@ -48,6 +68,8 @@
 </template>
 
 <script>
+import { getListener, addListener } from '@/api/listener'
+
 export default {
   name: 'Listener',
   data: () => ({
@@ -62,7 +84,7 @@ export default {
         title: 'Protocol',
         dataIndex: 'protocol',
         key: 'protocol',
-        scopedSlots: { customRender: 'protocol' }
+        scopedSlots: { customRender: 'protocol' } // 使用自定义渲染插槽
       },
       {
         title: 'Status',
@@ -83,95 +105,115 @@ export default {
         scopedSlots: { customRender: 'port' }
       },
       {
+        title: 'Create Time',
+        dataIndex: 'createTime',
+        key: 'createTime',
+        scopedSlots: { customRender: 'createTime' }
+      },
+      {
         title: '操作',
         key: 'action',
         scopedSlots: { customRender: 'operation' }
       }
     ],
-    data: [
-      {
-        key: '1',
-        name: 'http',
-        protocol: 'http',
-        status: 'active',
-        address: '0.0.0.0',
-        port: '8080',
-        editable: false
-      },
-      {
-        key: '2',
-        name: 'https',
-        protocol: 'https',
-        status: 'active',
-        address: '0.0.0.0',
-        port: '8443',
-        editable: false
-      }
-    ],
+    data: [],
     memberLoading: false,
     sideCollapsed: false,
     isMobile: false
   }),
   methods: {
+    fetchData () {
+      this.memberLoading = true
+      getListener()
+        .then(response => {
+          // 假设 response 是你直接从后端获取到的数据数组
+          const formattedData = response.map(item => ({
+            ...item,
+            key: item.id, // 使用 id 作为 key
+            createTime: this.formatTime(item.createTime) // 格式化时间戳为可读日期，如果需要的话
+          }))
+          this.data = formattedData
+          this.memberLoading = false
+        })
+        .catch(error => {
+          console.error('Error fetching data: ', error)
+          this.memberLoading = false
+        })
+    },
+    formatTime (timestamp) {
+      const date = new Date(timestamp)
+      return date.toLocaleString() // 或者使用任何你喜欢的日期格式
+    },
     newListener () {
-      const { data } = this
+      // 为表格添加一个新的空行，供用户填写信息
       const newData = {
-        key: data.length + 1,
-        name: '',
-        workId: '',
-        department: '',
-        editable: true,
-        isNew: true
+        key: this.data.length + 1, // 确保 key 是唯一的
+        name: '', // 用户将填写的名称
+        protocol: '', // 用户将选择的协议
+        port: 100, // 用户将填写的端口
+        address: '', // 用户将填写的地址
+        editable: true, // 使这行可编辑
+        isNew: true // 标记这是一个新的监听器
       }
-      this.data = [...data, newData]
+      this.data = [...this.data, newData] // 添加到当前数据中
+    },
+    handleChange (value, key, column) {
+      const index = this.data.findIndex(item => item.key === key)
+      if (index !== -1) {
+        // 如果是 port 列，确保值被转换为数值类型
+        const updatedValue = column === 'port' ? parseInt(value, 10) : value
+
+        // 检查转换后的数值是否为 NaN，如果是，则不更新该值
+        if (column === 'port' && isNaN(updatedValue)) {
+          console.error('Port must be a valid number')
+          return
+        }
+
+        // 使用 Vue.set 来确保响应式更新
+        this.$set(this.data, index, { ...this.data[index], [column]: updatedValue })
+      }
+    },
+    saveRow (record) {
+      this.memberLoading = true
+      // 检查是否为新创建的监听器
+      if (record.isNew) {
+        // 构建发送到服务器的数据
+        const params = {
+          name: record.name,
+          protocol: record.protocol,
+          port: record.port,
+          address: record.address
+        }
+        // 调用 addListener 发送请求
+        addListener(params).then(response => {
+          // 处理响应
+          this.$message.success('监听器添加成功')
+          this.fetchData() // 重新加载数据
+          // 更新状态，避免重复提交
+          const index = this.data.findIndex(item => item.key === record.key)
+          if (index !== -1) {
+            this.data[index].editable = false
+            this.data[index].isNew = false
+          }
+          this.memberLoading = false
+        }).catch(error => {
+          console.error('监听器添加失败', error)
+          this.$message.error('监听器添加失败，请重试')
+          this.memberLoading = false
+        })
+      } else {
+        // 如果不是新创建的监听器，这里可以处理更新逻辑
+        // 更新逻辑...
+      }
     }
   },
-  handleChange (value, key, column) {
-    const newData = [...this.data]
-    const target = newData.find(item => key === item.key)
-    if (target) {
-      target[column] = value
-      this.data = newData
-    }
+  mounted () {
+    this.fetchData()
   },
   remove (key) {
     const newData = this.data.filter(item => item.key !== key)
     this.data = newData
-  },
-  saveRow (record) {
-      this.memberLoading = true
-      const { key, name, workId, department } = record
-      if (!name || !workId || !department) {
-        this.memberLoading = false
-        this.$message.error('请填写完整成员信息。')
-        return
-      }
-      // 模拟网络请求、卡顿 800ms
-      new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ loop: false })
-        }, 800)
-      }).then(() => {
-        const target = this.data.find(item => item.key === key)
-        target.editable = false
-        target.isNew = false
-        this.memberLoading = false
-      })
-    },
-    toggle (key) {
-      const target = this.data.find(item => item.key === key)
-      target._originalData = { ...target }
-      target.editable = !target.editable
-    },
-    getRowByKey (key, newData) {
-      const data = this.data
-      return (newData || data).find(item => item.key === key)
-    },
-    cancel (key) {
-      const target = this.data.find(item => item.key === key)
-      Object.keys(target).forEach(key => { target[key] = target._originalData[key] })
-      target._originalData = undefined
-    }
+  }
 }
 
 </script>
