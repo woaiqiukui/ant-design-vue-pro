@@ -1,6 +1,8 @@
 <template>
   <page-header-wrapper>
     <a-card>
+      <a-button @click="fetchData" type="primary" icon="reload">刷新监听器列表</a-button>
+
       <a-table
         :columns="columns"
         :dataSource="data"
@@ -27,7 +29,7 @@
             <a-select-option value="Udp">Udp</a-select-option>
             <a-select-option value="Tcp">Tcp</a-select-option>
           </a-select>
-          <template v-else-if="col === 'status'">{{ record.editable ? 'Idle' : text }}</template>
+          <a-tag v-else-if="col === 'status'" :key="col" :color="getStatusTagColor(text)">{{ record.editable ? 'Idle' : text }}</a-tag>
           <a-input
             v-else-if="record.editable && (col === 'address' || col === 'port')"
             :key="col"
@@ -96,9 +98,13 @@
 
 <script>
 import { getListener, addListener, updateListener } from '@/api/listener'
+import { Tag } from 'ant-design-vue'
 
 export default {
   name: 'Listener',
+  components: {
+    Tag
+  },
   data: () => ({
     columns: [
       {
@@ -284,6 +290,18 @@ export default {
         console.error('监听器关停失败', error)
         this.$message.error('监听器关停失败，请重试')
       })
+    },
+    getStatusTagColor (status) {
+      switch (status) {
+        case 'Idle':
+          return 'cyan' // 蓝色
+        case 'Running':
+          return 'green' // 绿色
+        case 'Stopped':
+          return 'red' // 橙色
+        default:
+          return 'blue' // 默认颜色
+      }
     }
   },
   mounted () {
