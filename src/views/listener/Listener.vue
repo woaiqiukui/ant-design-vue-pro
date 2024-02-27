@@ -54,11 +54,38 @@
             </span>
           </template>
           <span v-else>
-            <a @click="toggle(record.key)">编辑</a>
+            <!-- 使用a-tooltip包裹a-icon，并通过条件判断来禁用或启用图标 -->
+            <a-tooltip title="暂停">
+              <div :style="{ cursor: record.status === 'Running' ? 'pointer' : 'not-allowed', display: 'inline' }">
+                <a-popconfirm title="是否要暂停该监听器？" @confirm="pause(record.id)">
+                  <a-icon type="pause-circle" :style="{ color: record.status === 'Running' ? 'inherit' : 'grey' }" />
+                </a-popconfirm>
+              </div>
+            </a-tooltip>
             <a-divider type="vertical" />
-            <a-popconfirm title="是否要删除此行？" @confirm="remove(record.key)">
-              <a>删除</a>
-            </a-popconfirm>
+
+            <a-tooltip title="恢复">
+              <div :style="{ cursor: record.status === 'Idle' ? 'pointer' : 'not-allowed', display: 'inline' }">
+                <a-popconfirm title="是否要恢复该监听器？" @confirm="resume(record.id)">
+                  <a-icon type="play-circle" :style="{ color: record.status === 'Idle' ? 'inherit' : 'grey' }" />
+                </a-popconfirm>
+              </div>
+            </a-tooltip>
+            <a-divider type="vertical" />
+
+            <!-- 重启和关停按钮始终可用 -->
+            <a-tooltip title="重启">
+              <a-popconfirm title="是否要重启该监听器？" @confirm="restart(record.id)">
+                <a-icon type="sync" style="cursor: pointer;" />
+              </a-popconfirm>
+            </a-tooltip>
+            <a-divider type="vertical" />
+
+            <a-tooltip title="关停">
+              <a-popconfirm title="是否要关停该监听器？" @confirm="stop(record.id)">
+                <a-icon type="poweroff" style="cursor: pointer;" />
+              </a-popconfirm>
+            </a-tooltip>
           </span>
         </template>
       </a-table>
@@ -68,7 +95,7 @@
 </template>
 
 <script>
-import { getListener, addListener } from '@/api/listener'
+import { getListener, addListener, updateListener } from '@/api/listener'
 
 export default {
   name: 'Listener',
@@ -126,8 +153,10 @@ export default {
       this.memberLoading = true
       getListener()
         .then(response => {
+          // 过滤掉状态为'error'的监听器
+          const filteredData = response.filter(item => item.status !== 'Error')
           // 假设 response 是你直接从后端获取到的数据数组
-          const formattedData = response.map(item => ({
+          const formattedData = filteredData.map(item => ({
             ...item,
             key: item.id, // 使用 id 作为 key
             createTime: this.formatTime(item.createTime) // 格式化时间戳为可读日期，如果需要的话
@@ -149,7 +178,7 @@ export default {
       const newData = {
         key: this.data.length + 1, // 确保 key 是唯一的
         name: '', // 用户将填写的名称
-        protocol: '', // 用户将选择的协议
+        protocol: 'Tcp', // 用户将选择的协议
         port: 100, // 用户将填写的端口
         address: '', // 用户将填写的地址
         editable: true, // 使这行可编辑
@@ -205,14 +234,60 @@ export default {
         // 如果不是新创建的监听器，这里可以处理更新逻辑
         // 更新逻辑...
       }
+    },
+    remove (key) {
+      const newData = this.data.filter(item => item.key !== key)
+      this.data = newData
+    },
+    pause (id) {
+      const record = this.data.find(item => item.id === id)
+      if (record && record.status !== 'Running') {
+        this.$message.warning('监听器不在运行状态，无法暂停')
+        return // 直接返回，不执行后续操作
+      }
+      updateListener({ id: id, command: 'Pause' }).then(response => {
+        this.$message.success('监听器暂停成功')
+        this.fetchData() // 重新加载数据
+      }).catch(error => {
+        console.error('监听器暂停失败', error)
+        this.$message.error('监听器暂停失败，请重试')
+      })
+    },
+    resume (id) {
+      const record = this.data.find(item => item.id === id)
+      if (record && record.status !== 'Idle') {
+        this.$message.warning('监听器不在空闲状态，无法恢复')
+        return // 直接返回，不执行后续操作
+      }
+      updateListener({ id: id, command: 'Resume' }).then(response => {
+        this.$message.success('监听器恢复成功')
+        this.fetchData() // 重新加载数据
+      }).catch(error => {
+        console.error('监听器恢复失败', error)
+        this.$message.error('监听器恢复失败，请重试')
+      })
+    },
+    restart (id) {
+      updateListener({ id: id, command: 'Restart' }).then(response => {
+        this.$message.success('监听器重启成功')
+        this.fetchData() // 重新加载数据
+      }).catch(error => {
+        console.error('监听器重启失败', error)
+        this.$message.error('监听器重启失败，请重试')
+      })
+    },
+    stop (id) {
+      updateListener({ id: id, command: 'Stop' }).then(response => {
+        this.$message.success('监听器关停成功')
+        this.fetchData() // 重新加载数据
+      }).catch(error => {
+        console.error('监听器关停失败', error)
+        this.$message.error('监听器关停失败，请重试')
+      })
     }
   },
   mounted () {
     this.fetchData()
-  },
-  remove (key) {
-    const newData = this.data.filter(item => item.key !== key)
-    this.data = newData
   }
 }
 
