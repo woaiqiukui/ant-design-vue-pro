@@ -7,5 +7,7 @@
  * 所有图标均从这里加载，方便管理
  */
 import bxAnaalyse from '@/assets/icons/bx-analyse.svg?inline' // path to your '*.svg?inline' file.
+import listenerIcon from '@/assets/icons/listener.svg?inline'
+import gruntIcon from '@/assets/icons/grunt.svg?inline'
 
-export { bxAnaalyse }
+export { bxAnaalyse, listenerIcon, gruntIcon }

@@ -1,6 +1,6 @@
 // eslint-disable-next-line
 import { UserLayout, BasicLayout, BlankLayout } from '@/layouts'
-import { bxAnaalyse } from '@/core/icons'
+import { bxAnaalyse, listenerIcon, gruntIcon } from '@/core/icons'
 
 const RouteView = {
   name: 'RouteView',
@@ -47,8 +47,24 @@ export const asyncRouterMap = [
         path: 'listeners',
         name: 'listeners',
         component: () => import('@/views/listener/Listener'),
-        meta: { title: 'menu.listeners', icon: 'user' }
+        meta: { title: 'menu.listeners', icon: listenerIcon }
       },
+        // Grunts
+        {
+          path: '/grunts',
+          name: 'grunts',
+          component: RouteView,
+          redirect: '/grunts/list',
+          meta: { title: 'menu.grunts', icon: gruntIcon, permission: ['table'] },
+          children: [
+            {
+              path: '/grunts/list',
+              name: 'gruntsList',
+              component: () => import('@/views/grunts/Grunts'),
+              meta: { title: 'menu.grunts.list', keepAlive: true, permission: ['table'] }
+            }
+          ]
+        },
       // forms
       {
         path: '/form',
@@ -204,23 +220,6 @@ export const asyncRouterMap = [
             name: 'Exception500',
             component: () => import(/* webpackChunkName: "fail" */ '@/views/exception/500'),
             meta: { title: 'menu.exception.server-error', permission: ['exception'] }
-          }
-        ]
-      },
-
-      // Grunts
-      {
-        path: '/grunts',
-        name: 'grunts',
-        component: RouteView,
-        redirect: '/grunts/list',
-        meta: { title: 'menu.grunts', icon: 'user', permission: ['table'] },
-        children: [
-          {
-            path: '/grunts/list',
-            name: 'gruntsList',
-            component: () => import('@/views/grunts/Grunts'),
-            meta: { title: 'menu.grunts.list', keepAlive: true, permission: ['table'] }
           }
         ]
       },
