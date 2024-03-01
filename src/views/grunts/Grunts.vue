@@ -6,16 +6,22 @@
           <a-row :gutter="48">
             <a-col :md="8" :sm="24">
               <a-form-item label="Grunt Name">
-                <a-input v-model="queryParam.id" placeholder=""/>
+                <a-input v-model="queryParam.name" placeholder=""/>
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
               <a-form-item label="Grunt 状态">
                 <a-select v-model="queryParam.status" placeholder="请选择" default-value="0">
-                  <a-select-option value="0">全部</a-select-option>
-                  <a-select-option value="1">关闭</a-select-option>
-                  <a-select-option value="2">运行中</a-select-option>
+                  <a-select-option value="0">All</a-select-option>
+                  <a-select-option value="Idle">Idle</a-select-option>
+                  <a-select-option value="2">Working</a-select-option>
+                  <a-select-option value="3">Dead</a-select-option>
                 </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :md="8" :sm="24">
+              <a-form-item label="Host Name">
+                <a-input v-model="queryParam.hostname" placeholder=""/>
               </a-form-item>
             </a-col>
           </a-row>
@@ -24,17 +30,17 @@
           <a-row :gutter="48" v-if="advanced">
             <a-col :md="8" :sm="24">
               <a-form-item label="ExternalIP">
-                <a-input-number v-model="queryParam.external_ip" style="width: 100%"/>
+                <a-input v-model="queryParam.external_ip" style="width: 100%"/>
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
               <a-form-item label="InternalIP">
-                <a-input-number v-model="queryParam.internal_ip" style="width: 100%"/>
+                <a-input v-model="queryParam.internal_ip" style="width: 100%"/>
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
               <a-form-item label="CreateTime">
-                <a-date-picker v-model="queryParam.date" style="width: 100%" placeholder="请输入创建日期"/>
+                <a-date-picker v-model="queryParam.create_time" style="width: 100%" placeholder="请输入创建日期"/>
               </a-form-item>
             </a-col>
           </a-row>
@@ -198,7 +204,38 @@ export default {
   methods: {
     loadData (parameter) {
       return getGrunt().then(response => {
-        const mappedData = response.map(item => ({
+        // 这里假设response是包含所有grunt对象的数组
+        let filteredData = response
+
+        // 在这里根据queryParam来过滤数据
+        if (this.queryParam.name) {
+          filteredData = filteredData.filter(item => item.name.includes(this.queryParam.id))
+        }
+        if (this.queryParam.status) {
+          filteredData = filteredData.filter(item => item.status.toString() === this.queryParam.status)
+        }
+        if (this.queryParam.hostname) {
+          filteredData = filteredData.filter(item => item.hostname.includes(this.queryParam.hostname))
+        }
+
+        // 如果开启了高级搜索并且有相关参数，继续过滤
+        if (this.advanced) {
+          if (this.queryParam.external_ip) {
+            filteredData = filteredData.filter(item => item.external_ip === this.queryParam.external_ip)
+          }
+          if (this.queryParam.internal_ip) {
+            filteredData = filteredData.filter(item => item.internal_ip === this.queryParam.internal_ip)
+          }
+          // 日期过滤需要转换为相同的格式进行比较
+          if (this.queryParam.create_time) {
+            const searchDate = this.queryParam.date.format('YYYY-MM-DD')
+            filteredData = filteredData.filter(item => {
+              const itemDate = this.formatDate(item.create_time)
+              return itemDate === searchDate
+            })
+          }
+        }
+        const mappedData = filteredData.map(item => ({
           key: item.client_id, // 假设每条记录都有一个唯一的client_id作为key
           name: item.name,
           os: item.os,
@@ -244,7 +281,12 @@ export default {
 
     resetSearchForm () {
       this.queryParam = {
-        date: moment(new Date())
+        name: '',
+        status: '',
+        hostname: '',
+        external_ip: '',
+        internal_ip: '',
+        create_time: null
       }
     }
   }
