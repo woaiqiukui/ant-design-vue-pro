@@ -12,10 +12,9 @@
             <a-col :md="8" :sm="24">
               <a-form-item label="Grunt 状态">
                 <a-select v-model="queryParam.status" placeholder="请选择" default-value="0">
-                  <a-select-option value="0">All</a-select-option>
                   <a-select-option value="Idle">Idle</a-select-option>
-                  <a-select-option value="2">Working</a-select-option>
-                  <a-select-option value="3">Dead</a-select-option>
+                  <a-select-option value="Working">Working</a-select-option>
+                  <a-select-option value="Dead">Dead</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -29,12 +28,12 @@
           <!-- Advanced Options Row -->
           <a-row :gutter="48" v-if="advanced">
             <a-col :md="8" :sm="24">
-              <a-form-item label="ExternalIP">
+              <a-form-item label="External_IP">
                 <a-input v-model="queryParam.external_ip" style="width: 100%"/>
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
-              <a-form-item label="InternalIP">
+              <a-form-item label="Internal_IP">
                 <a-input v-model="queryParam.internal_ip" style="width: 100%"/>
               </a-form-item>
             </a-col>
@@ -86,7 +85,7 @@
 
         <span slot="action" slot-scope="text, record">
           <template>
-            <a @click="handleEdit(record)">编辑</a>
+            <a @click="handleEdit(record)">详情</a>
             <a-divider type="vertical" />
           </template>
           <a-dropdown>
@@ -209,7 +208,7 @@ export default {
 
         // 在这里根据queryParam来过滤数据
         if (this.queryParam.name) {
-          filteredData = filteredData.filter(item => item.name.includes(this.queryParam.id))
+          filteredData = filteredData.filter(item => item.name.includes(this.queryParam.name))
         }
         if (this.queryParam.status) {
           filteredData = filteredData.filter(item => item.status.toString() === this.queryParam.status)

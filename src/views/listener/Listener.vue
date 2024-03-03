@@ -185,8 +185,8 @@ export default {
         key: this.data.length + 1, // 确保 key 是唯一的
         name: '', // 用户将填写的名称
         protocol: 'Tcp', // 用户将选择的协议
-        port: 100, // 用户将填写的端口
-        address: '', // 用户将填写的地址
+        port: 90, // 用户将填写的端口
+        address: '0.0.0.0', // 用户将填写的地址
         editable: true, // 使这行可编辑
         isNew: true // 标记这是一个新的监听器
       }
