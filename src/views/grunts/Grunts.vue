@@ -269,6 +269,12 @@ export default {
       this.selectedRows = selectedRows
     },
 
+    handleEdit (record) {
+      // 假设record对象包含了grunt的id
+      console.log(record)
+      this.$router.push({ path: `/grunts/${record.key}` })
+    },
+
     formatDate (timestamp) {
       // 使用moment库来格式化时间戳
       return moment.unix(timestamp).format('YYYY-MM-DD HH:mm:ss')

@@ -12,6 +12,16 @@ export function getGrunt () {
   })
 }
 
+export function getGruntByClientId (clientId) {
+  return request({
+    url: GruntUri + '/' + clientId,
+    method: 'get',
+    headers: {
+      'Content-Type': 'application/json;charset=UTF-8'
+    }
+  })
+}
+
 export function updateGruntName (parameter) {
   return request({
     url: GruntUri,

@@ -49,22 +49,33 @@ export const asyncRouterMap = [
         component: () => import('@/views/listener/Listener'),
         meta: { title: 'menu.listeners', icon: listenerIcon }
       },
-        // Grunts
-        {
-          path: '/grunts',
-          name: 'grunts',
-          component: RouteView,
-          redirect: '/grunts/list',
-          meta: { title: 'menu.grunts', icon: gruntIcon, permission: ['table'] },
-          children: [
-            {
-              path: '/grunts/list',
-              name: 'gruntsList',
-              component: () => import('@/views/grunts/Grunts'),
-              meta: { title: 'menu.grunts.list', keepAlive: true, permission: ['table'] }
-            }
-          ]
-        },
+      // Grunts
+      {
+        path: '/grunts',
+        name: 'grunts',
+        component: RouteView,
+        redirect: '/grunts/list',
+        meta: { title: 'menu.grunts', icon: gruntIcon, permission: ['table'] },
+        children: [
+          {
+            path: '/grunts/list',
+            name: 'gruntsList',
+            component: () => import('@/views/grunts/Grunts'),
+            meta: { title: 'menu.grunts.list', keepAlive: true, permission: ['table'] }
+          },
+          {
+            path: '/grunts/:client_id',
+            name: 'gruntDetail',
+            component: () => import('@/views/grunts/Detail'),
+            hidden: true,
+            meta: {
+              title: 'Grunt Detail',
+              permission: ['table']
+            },
+            props: route => ({ gruntId: route.params.client_id }) // 将路由参数 id 映射为 grunt_id prop
+          }
+        ]
+      },
       // forms
       {
         path: '/form',
