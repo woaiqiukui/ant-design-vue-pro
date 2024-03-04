@@ -1,42 +1,48 @@
 <template>
   <page-header-wrapper
-    :title="'grunt\'s name: ' + grunt.name"
+    :title="'Grunt\'s name: ' + grunt.name"
     :tab-list="tabList"
     :tab-active-key="tabActiveKey"
     @tabChange="handleTabChange"
   >
 
     <template v-slot:content>
-      <a-descriptions size="small" :column="isMobile ? 1 : 2">
-        <a-description-item label="Name">{{ grunt.name }}</a-description-item>
-        <a-description-item label="Age">{{ grunt.os }}</a-description-item>
-        <a-description-item label="Address">{{ grunt.external_ip }}</a-description-item>
-        <a-description-item label="Tags">{{ grunt.internal_ip }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.status }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.username }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.pid }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.process_name }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.cpu }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.memory }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.hostname }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.last_seen }}</a-description-item>
-        <a-description-item label="Description">{{ grunt.create_time }}</a-description-item>
-      </a-descriptions>
+      <a-card type="inner" title="Grunt详情">
+        <a-descriptions size="small" :column="isMobile ? 1 : 2">
+          <a-descriptions-item label="Name">{{ grunt.name }}</a-descriptions-item>
+          <a-descriptions-item label="OS">{{ grunt.os }}</a-descriptions-item>
+          <a-descriptions-item label="外部IP">{{ grunt.external_ip }}</a-descriptions-item>
+          <a-descriptions-item label="内部IP">{{ grunt.internal_ip }}</a-descriptions-item>
+          <a-descriptions-item label="Grunt状态">{{ grunt.status }}</a-descriptions-item>
+          <a-descriptions-item label="Username">{{ grunt.username }}</a-descriptions-item>
+          <a-descriptions-item label="Pid">{{ grunt.pid }}</a-descriptions-item>
+          <a-descriptions-item label="Process_Name">{{ grunt.process_name }}</a-descriptions-item>
+          <a-descriptions-item label="CPU">{{ grunt.cpu }}</a-descriptions-item>
+          <a-descriptions-item label="MEMORY">{{ grunt.memory }}</a-descriptions-item>
+          <a-descriptions-item label="Hostname">{{ grunt.hostname }}</a-descriptions-item>
+          <a-descriptions-item label="最近心跳时间">{{ formatDate(grunt.last_seen) }}</a-descriptions-item>
+          <a-descriptions-item label="初次心跳时间">{{ formatDate(grunt.create_time) }}</a-descriptions-item>
+        </a-descriptions>
+      </a-card>
     </template>
 
     <!-- 操作 -->
-    <template>
-      <a-card
-        style="margin-top: 24px"
-        :bordered="false"
-        :tabList="operationTabList"
-        :activeTabKey="operationActiveTabKey"
-        @tabChange="handleOperationTabChange"
-      >
-        <!-- 动态组件，根据当前的 tab key 显示不同的内容 -->
-        <component :is="currentComponent"></component>
-      </a-card>
-    </template>
+    <a-descriptions title="Mqtt通道信息" :column="isMobile ? 1 : 2">
+      <a-descriptions-item label="操作">
+        <a-descriptions label="Client_ID"></a-descriptions>
+      </a-descriptions-item>
+    </a-descriptions>
+
+    <a-card
+      style="margin-top: 24px"
+      :bordered="false"
+      :tabList="operationTabList"
+      :activeTabKey="operationActiveTabKey"
+      @tabChange="handleOperationTabChange"
+    >
+      <!-- 动态组件，根据当前的 tab key 显示不同的内容 -->
+      <component :is="currentComponent"></component>
+    </a-card>
   </page-header-wrapper>
 </template>
 
@@ -67,7 +73,7 @@ export default {
       ],
       tabActiveKey: 'Detail',
       operationTabList: [
-        { key: 'Execution', tab: '插件执行' },
+        { key: 'Execution', tab: 'Mqtt通道' },
         { key: 'FileManager', tab: '文件管理' }
       ],
       operationActiveTabKey: 'Execution',
@@ -101,6 +107,13 @@ export default {
         console.log(response)
         this.grunt = response
       })
+    },
+    fetchMqttData () {
+      // 获取 Mqtt 通道信息
+    },
+    formatDate (timestamp) {
+      const date = new Date(timestamp * 1000) // 转换为毫秒
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
     }
   }
 }

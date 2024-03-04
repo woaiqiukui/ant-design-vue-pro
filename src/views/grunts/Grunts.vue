@@ -81,6 +81,7 @@
         :data="loadData"
         :rowSelection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
         :scroll="{ x: 'max-content' }"
+        @row-dblclick="handleRowDblclick"
       >
 
         <span slot="action" slot-scope="text, record">
@@ -282,6 +283,10 @@ export default {
 
     toggleAdvanced () {
       this.advanced = !this.advanced
+    },
+
+    handleRowDblclick (record) {
+      this.handleEdit(record)
     },
 
     resetSearchForm () {
