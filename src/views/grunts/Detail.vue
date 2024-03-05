@@ -1,15 +1,8 @@
 <template>
-  <page-header-wrapper
-    :title="'Grunt\'s name: ' + grunt.name"
-    :tab-list="tabList"
-    :tab-active-key="tabActiveKey"
-    @tabChange="handleTabChange"
-  >
-
+  <page-header-wrapper :title="'Grunt\'s Name: ' + grunt.name">
     <template v-slot:content>
       <a-card type="inner" title="Grunt详情">
         <a-descriptions size="small" :column="isMobile ? 1 : 2">
-          <a-descriptions-item label="Name">{{ grunt.name }}</a-descriptions-item>
           <a-descriptions-item label="OS">{{ grunt.os }}</a-descriptions-item>
           <a-descriptions-item label="外部IP">{{ grunt.external_ip }}</a-descriptions-item>
           <a-descriptions-item label="内部IP">{{ grunt.internal_ip }}</a-descriptions-item>
@@ -24,25 +17,45 @@
           <a-descriptions-item label="初次心跳时间">{{ formatDate(grunt.create_time) }}</a-descriptions-item>
         </a-descriptions>
       </a-card>
+      <a-card type="inner" title="Mqtt通道信息">
+        <a-descriptions size="small" :column="isMobile ? 1 : 2">
+          <a-descriptions-item label="Client_ID">{{ mqtt_channel.client_id }}</a-descriptions-item>
+          <a-descriptions-item label="Status">{{ mqtt_channel.status }}</a-descriptions-item>
+          <a-descriptions-item label="Broker">{{ mqtt_channel.broker }}</a-descriptions-item>
+          <a-descriptions-item label="Topic">{{ mqtt_channel.topic }}</a-descriptions-item>
+          <a-descriptions-item label="QOS">{{ mqtt_channel.qos }}</a-descriptions-item>
+          <a-descriptions-item label="Username">
+            <template v-if="showUsername">{{ mqtt_channel.username }}</template>
+            <template v-if="!showUsername">******</template>
+            <a-icon
+              :type="showUsername ? 'eye-invisible' : 'eye'"
+              @click="showUsername = !showUsername"
+              class="icon-spacing"
+            ></a-icon>
+          </a-descriptions-item>
+
+          <a-descriptions-item label="Password">
+            <template v-if="showPassword">{{ mqtt_channel.password }}</template>
+            <template v-if="!showPassword">******</template>
+            <a-icon
+              :type="showPassword ? 'eye-invisible' : 'eye'"
+              @click="showPassword = !showPassword"
+              class="icon-spacing"
+            ></a-icon>
+          </a-descriptions-item>
+          <a-descriptions-item label="创建时间">{{ formatDate(mqtt_channel.create_time) }}</a-descriptions-item>
+        </a-descriptions>
+      </a-card>
+
+      <a-tabs :activeKey="tabActiveKey" @change="handleTabChange" class="custom-tab">
+        <a-tab-pane key="Execution" tab="Mqtt通道"></a-tab-pane>
+        <a-tab-pane key="FileManager" tab="文件管理"></a-tab-pane>
+        <a-tab-pane key="Plugins" tab="插件管理"></a-tab-pane>
+      </a-tabs>
+
+      <!-- 根据当前激活的 Tab 动态渲染组件 -->
+      <component :is="currentComponent" :mqttChannel="mqtt_channel"></component>
     </template>
-
-    <!-- 操作 -->
-    <a-descriptions title="Mqtt通道信息" :column="isMobile ? 1 : 2">
-      <a-descriptions-item label="操作">
-        <a-descriptions label="Client_ID"></a-descriptions>
-      </a-descriptions-item>
-    </a-descriptions>
-
-    <a-card
-      style="margin-top: 24px"
-      :bordered="false"
-      :tabList="operationTabList"
-      :activeTabKey="operationActiveTabKey"
-      @tabChange="handleOperationTabChange"
-    >
-      <!-- 动态组件，根据当前的 tab key 显示不同的内容 -->
-      <component :is="currentComponent"></component>
-    </a-card>
   </page-header-wrapper>
 </template>
 
@@ -51,13 +64,14 @@ import { baseMixin } from '@/store/app-mixin'
 import Execution from './Execution'
 import FileManager from './FileManager'
 import { getGruntByClientId } from '@/api/grunt'
+import { getMqttChannleByClentId } from '@/api/mqtt_channel'
 
 export default {
   name: 'Detail',
   mixins: [baseMixin],
   components: {
     Execution, // 注册 Execution 组件
-    FileManager // 注册 FileManager 组件
+    FileManager
   },
   props: {
     gruntId: {
@@ -68,28 +82,30 @@ export default {
   data () {
     return {
       tabList: [
-        { key: 'Detail', tab: '操作' },
+        { key: 'Execution', tab: 'Mqtt通道' },
+        { key: 'FileManager', tab: '文件管理' },
         { key: 'Plugins', tab: '插件管理' }
       ],
-      tabActiveKey: 'Detail',
-      operationTabList: [
-        { key: 'Execution', tab: 'Mqtt通道' },
-        { key: 'FileManager', tab: '文件管理' }
-      ],
-      operationActiveTabKey: 'Execution',
-      grunt: null // 初始时 grunt 为空
+      tabActiveKey: 'Execution',
+      grunt: null,
+      mqtt_channel: null,
+      showUsername: false,
+      showPassword: false
     }
   },
   mounted () {
     this.fetchGruntData()
+    this.fetchMqttData()
   },
   computed: {
     currentComponent () {
-      switch (this.operationActiveTabKey) {
+      switch (this.tabActiveKey) {
         case 'Execution':
           return Execution
         case 'FileManager':
           return FileManager
+        // case 'Plugins':
+        //   return Plugins
         default:
           return null
       }
@@ -99,17 +115,16 @@ export default {
     handleTabChange (key) {
       this.tabActiveKey = key
     },
-    handleOperationTabChange (key) {
-      this.operationActiveTabKey = key
-    },
     fetchGruntData () {
       getGruntByClientId(this.gruntId).then((response) => {
-        console.log(response)
         this.grunt = response
       })
     },
     fetchMqttData () {
-      // 获取 Mqtt 通道信息
+      getMqttChannleByClentId(this.gruntId).then((resopnse) => {
+        console.log(resopnse)
+        this.mqtt_channel = resopnse
+      })
     },
     formatDate (timestamp) {
       const date = new Date(timestamp * 1000) // 转换为毫秒
@@ -118,3 +133,9 @@ export default {
   }
 }
 </script>
+<style>
+/* 其他样式保持不变 */
+.icon-spacing {
+  margin-left: 8px; /* 或者根据你的设计需求调整 */
+}
+</style>@/api/mqtt_channel
