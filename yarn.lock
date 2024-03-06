@@ -8029,7 +8029,7 @@ mqtt-packet@^9.0.0:
 
 mqtt@^5.2.0, mqtt@^5.3.6:
   version "5.3.6"
-  resolved "https://registry.npmmirror.com/mqtt/-/mqtt-5.3.6.tgz#4445926d30a56ab26109b5480138abd16673fe11"
+  resolved "https://registry.npmjs.org/mqtt/-/mqtt-5.3.6.tgz#4445926d30a56ab26109b5480138abd16673fe11"
   integrity sha512-3XeyCdHRFf3zZdUUBt/pqprKPtUABc8O4ZGPGs2QPO4sPNTnJels8U2UtBtMt09QCgpUmw8gLTLy2R7verR7kQ==
   dependencies:
     "@types/readable-stream" "^4.0.5"

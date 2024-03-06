@@ -4,17 +4,21 @@
       <a-space>
         <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected">连接</a-button>
         <a-button type="danger" @click="destroyConnection" :disabled="!client.connected">断开连接</a-button>
+        <a-button type="default" @click="doSubscribe" :disabled="!client.connected || subscribeSuccess">订阅</a-button>
+        <a-button type="warning" @click="doUnSubscribe" :disabled="!client.connected || !subscribeSuccess">取消订阅</a-button>
       </a-space>
     </a-card>
     <a-card class="chat-card">
-      <div class="messages">
+      <div class="messages" ref="messagesContainer">
         <div v-for="(msg, index) in messages" :key="index" class="message" :class="{ 'is-user': msg.isUser }">
+          <div class="message-time">{{ msg.timestamp }}</div>
           <div v-if="msg.isUser" class="message-content user-message">{{ msg.text }}</div>
           <div v-else class="message-content mqtt-message">{{ msg.text }}</div>
         </div>
       </div>
       <div class="message-input">
-        <a-input v-model="newMessage" @keypress.enter="sendNewMessage" placeholder="输入消息..."></a-input>
+        <a-input v-model="newMessage" placeholder="输入消息..." style="width: 80%"></a-input>
+        <a-button @click="sendNewMessage" type="primary">发送</a-button>
       </div>
     </a-card>
   </div>
@@ -47,13 +51,12 @@ export default {
         password: this.mqttChannel.password
       },
       subscription: {
-        topic: this.mqttChannel.command_receive_topic,
+        topic: this.mqttChannel.result_send_topic,
         qos: this.mqttChannel.qos
       },
       publish: {
-        topic: this.mqttChannel.command_send_topic,
-        qos: this.mqttChannel.qos,
-        payload: '{ "msg": "Hello, I am browser." }'
+        topic: this.mqttChannel.command_receive_topic,
+        qos: this.mqttChannel.qos
       },
       receiveNews: '',
       qosList: [0, 1, 2],
@@ -63,7 +66,8 @@ export default {
       subscribeSuccess: false,
       connecting: false,
       retryTimes: 0,
-      messages: []
+      newMessage: '', // 绑定到输入框的新消息
+      messages: [] // 存储历史消息的数组
     }
   },
   methods: {
@@ -91,7 +95,7 @@ export default {
       this.isConnecting = true
       try {
         // 假设的连接逻辑...
-        const connectUrl = `${this.connection.broker}`
+        const connectUrl = `${this.connection.broker}/mqtt`
         const { broker, topic, ...options } = this.connection
         this.client = mqtt.connect(connectUrl, options)
         this.client.on('connect', () => {
@@ -102,6 +106,14 @@ export default {
         this.client.on('error', (error) => {
           this.isConnecting = false
           console.log('Connection failed', error)
+        })
+        this.client.on('message', (topic, message) => {
+          const msg = message.toString()
+          this.messages.push({
+            text: msg,
+            isUser: false, // 标记为接收到的消息
+            timestamp: new Date().toLocaleTimeString()
+          })
         })
       } catch (error) {
         this.isConnecting = false
@@ -133,8 +145,9 @@ export default {
     },
     // publish message
     // https://github.com/mqttjs/MQTT.js#mqttclientpublishtopic-message-options-callback
-    doPublish () {
-      const { topic, qos, payload } = this.publish
+    doPublish (payload) {
+      const { topic, qos } = this.publish
+      console.log('doPublish', topic, payload, qos)
       this.client.publish(topic, payload, { qos }, error => {
         if (error) {
           console.log('Publish error', error)
@@ -154,41 +167,80 @@ export default {
           console.log('Disconnect failed', error.toString())
         }
       }
+    },
+    sendNewMessage () {
+      if (!this.newMessage.trim()) return
+      const message = {
+        text: this.newMessage,
+        isUser: true, // 标记为用户消息
+        timestamp: new Date().toLocaleTimeString()
+      }
+      this.messages.push(message)
+      // MQTT 发布消息
+      this.doPublish(this.newMessage)
+
+      // 清空输入框
+      this.newMessage = ''
+    }
+  },
+  updated () {
+    const messagesContainer = this.$refs.messagesContainer
+    if (messagesContainer) {
+      // 将滚动条位置设置到容器的底部
+      // 这样最新的消息就会滚动到可视区域内
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
   }
 }
 </script>
 
 <style scoped>
-.messages {
-  height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column-reverse;
-}
-
-.message {
-  display: flex;
-  justify-content: flex-start;
+.message-time {
+  font-size: 0.75rem; /* 设置较小的字体大小 */
+  color: #888; /* 较淡的字体颜色，使其不那么显眼 */
+  margin-bottom: 4px; /* 在时间戳和消息内容之间添加一些间隙 */
 }
 
 .message-content {
-  max-width: 60%;
-  padding: 5px 10px;
-  margin: 5px;
-  border-radius: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px; /* 在消息之间添加一些间隙 */
+  display: inline-block;
+  max-width: 80%; /* 限制消息内容的最大宽度 */
 }
 
 .user-message {
-  background-color: #d3f261;
-  margin-left: auto;
+  background-color: #d3f261; /* 用户消息的背景颜色 */
+  color: black; /* 用户消息的字体颜色 */
+  margin-left: auto; /* 将用户消息对齐到右侧 */
+  text-align: right; /* 将文字内容对齐到右侧 */
 }
 
 .mqtt-message {
-  background-color: #69c0ff;
+  background-color: #69c0ff; /* MQTT 消息的背景颜色 */
+  color: white; /* MQTT 消息的字体颜色 */
+  margin-right: auto; /* 将 MQTT 消息对齐到左侧 */
+  text-align: left; /* 将文字内容对齐到左侧 */
+}
+
+.messages {
+  height: 300px; /* 设置一个固定的高度 */
+  overflow-y: auto; /* 超出部分滚动 */
+  display: flex;
+  flex-direction: column;
+  padding: 10px; /* 在消息框内部添加一些内边距 */
 }
 
 .message-input {
-  margin-top: 20px;
+  display: flex; /* 使输入框和发送按钮并排显示 */
+  margin-top: 20px; /* 在输入区域和消息列表之间添加一些间隙 */
+}
+
+.message-input > .a-input {
+  flex-grow: 1; /* 输入框占据大部分空间 */
+}
+
+.message-input > .a-button {
+  margin-left: 10px; /* 在发送按钮和输入框之间添加一些间隙 */
 }
 </style>
