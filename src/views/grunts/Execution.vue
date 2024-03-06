@@ -1,147 +1,21 @@
 <template>
   <div class="home-container">
-    <a-card shadow="always" style="margin-bottom:30px;">
-      <div class="emq-title">
-        Configuration
-      </div>
-      <a-form ref="configForm" hide-required-asterisk size="small" laba-position="top" :model="connection">
-        <a-row :gutter="20">
-          <a-col :span="8">
-            <a-form-item prop="host" label="Host">
-              <a-row :gutter="10">
-                <a-col :span="17">
-                  <a-input v-model="connection.host"></a-input>
-                </a-col>
-              </a-row>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="port" label="Port">
-              <a-input v-model.number="connection.port" type="number" placeholder="8083/8084"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="endpoint" label="Mountpoint">
-              <a-input v-model="connection.endpoint" placeholder="/mqtt"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="clientId" label="Client ID">
-              <a-input v-model="connection.clientId"> </a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="username" label="Username">
-              <a-input v-model="connection.username"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="password" label="Password">
-              <a-input v-model="connection.password"></a-input>
-            </a-form-item>
-          </a-col>
-
-          <a-col :span="24">
-            <a-button
-              type="success"
-              size="small"
-              class="conn-btn"
-              style="margin-right: 20px;"
-              :disabled="client.connected"
-              @click="createConnection"
-              :loading="connecting"
-            >
-              {{ client.connected ? 'Connected' : 'Connect' }}
-            </a-button>
-
-            <a-button v-if="client.connected" type="danger" size="small" class="conn-btn" @click="destroyConnection">
-              Disconnect
-            </a-button>
-          </a-col>
-        </a-row>
-      </a-form>
+    <a-card class="control-card">
+      <a-space>
+        <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected">连接</a-button>
+        <a-button type="danger" @click="destroyConnection" :disabled="!client.connected">断开连接</a-button>
+      </a-space>
     </a-card>
-    <a-card shadow="always" style="margin-bottom:30px;">
-      <div class="emq-title">
-        Subscribe
+    <a-card class="chat-card">
+      <div class="messages">
+        <div v-for="(msg, index) in messages" :key="index" class="message" :class="{ 'is-user': msg.isUser }">
+          <div v-if="msg.isUser" class="message-content user-message">{{ msg.text }}</div>
+          <div v-else class="message-content mqtt-message">{{ msg.text }}</div>
+        </div>
       </div>
-      <a-form ref="subscription" hide-required-asterisk size="small" laba-position="top" :model="subscription">
-        <a-row :gutter="20">
-          <a-col :span="8">
-            <a-form-item prop="topic" label="Topic">
-              <a-input v-model="subscription.topic"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="qos" label="QoS">
-              <a-select v-model="subscription.qos">
-                <a-option v-for="qos in qosList" :key="qos" :label="qos" :value="qos"></a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-button
-              :disabled="!client.connected"
-              type="success"
-              size="small"
-              class="subscribe-btn"
-              @click="doSubscribe"
-            >
-              {{ subscribeSuccess ? 'Subscribed' : 'Subscribe' }}
-            </a-button>
-            <a-button
-              :disabled="!client.connected"
-              type="success"
-              size="small"
-              class="subscribe-btn"
-              style="margin-left:20px"
-              @click="doUnSubscribe"
-              v-if="subscribeSuccess"
-            >
-              Unsubscribe
-            </a-button>
-          </a-col>
-        </a-row>
-      </a-form>
-    </a-card>
-    <a-card shadow="always" style="margin-bottom:30px;">
-      <div class="emq-title">
-        Publish
+      <div class="message-input">
+        <a-input v-model="newMessage" @keypress.enter="sendNewMessage" placeholder="输入消息..."></a-input>
       </div>
-      <a-form ref="publish" hide-required-asterisk size="small" laba-position="top" :model="publish">
-        <a-row :gutter="20">
-          <a-col :span="8">
-            <a-form-item prop="topic" label="Topic">
-              <a-input v-model="publish.topic"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="payload" label="Payload">
-              <a-input v-model="publish.payload"></a-input>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item prop="qos" label="QoS">
-              <a-select v-model="publish.qos">
-                <a-option v-for="qos in qosList" :key="qos" :label="qos" :value="qos"></a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-      </a-form>
-      <a-col :span="24">
-        <a-button :disabled="!client.connected" type="success" size="small" class="publish-btn" @click="doPublish">
-          Publish
-        </a-button>
-      </a-col>
-    </a-card>
-    <a-card shadow="always" style="margin-bottom:30px;">
-      <div class="emq-title">
-        Receive
-      </div>
-      <a-col :span="24">
-        <a-input type="textarea" :rows="3" style="margin-bottom: 15px" v-model="receiveNews" readOnly></a-input>
-      </a-col>
     </a-card>
   </div>
 </template>
@@ -159,6 +33,7 @@ export default {
   },
   data () {
     return {
+      isConnecting: false,
       connection: {
         broker: this.mqttChannel.broker,
         topic: this.mqttChannel.topic,
@@ -187,7 +62,8 @@ export default {
       },
       subscribeSuccess: false,
       connecting: false,
-      retryTimes: 0
+      retryTimes: 0,
+      messages: []
     }
   },
   methods: {
@@ -212,27 +88,23 @@ export default {
       }
     },
     createConnection () {
+      this.isConnecting = true
       try {
-        this.connecting = true
+        // 假设的连接逻辑...
+        const connectUrl = `${this.connection.broker}`
         const { broker, topic, ...options } = this.connection
-        const connectUrl = `${broker}${topic}`
         this.client = mqtt.connect(connectUrl, options)
-        if (this.client.on) {
-          this.client.on('connect', () => {
-            this.connecting = false
-            console.log('Connection succeeded!')
-          })
-          this.client.on('reconnect', this.handleOnReConnect)
-          this.client.on('error', error => {
-            console.log('Connection failed', error)
-          })
-          this.client.on('message', (topic, message) => {
-            this.receiveNews = this.receiveNews.concat(message)
-            console.log(`Received message ${message} from topic ${topic}`)
-          })
-        }
+        this.client.on('connect', () => {
+          this.isConnecting = false
+          this.client.connected = true
+          console.log('Connection succeeded!')
+        })
+        this.client.on('error', (error) => {
+          this.isConnecting = false
+          console.log('Connection failed', error)
+        })
       } catch (error) {
-        this.connecting = false
+        this.isConnecting = false
         console.log('mqtt.connect error', error)
       }
     },
@@ -287,48 +159,36 @@ export default {
 }
 </script>
 
-<style lang="scss">
-@import url('../../assets/style/home.scss');
+<style scoped>
+.messages {
+  height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+}
 
-.home-container {
-  max-width: 1100px;
-  margin: 0 auto;
+.message {
+  display: flex;
+  justify-content: flex-start;
+}
 
-  .conn-btn {
-    color: #fff;
-    background-color: #00b173;
-    font-size: 14px;
-  }
+.message-content {
+  max-width: 60%;
+  padding: 5px 10px;
+  margin: 5px;
+  border-radius: 15px;
+}
 
-  .publish-btn {
-    margin-bottom: 20px;
-    float: right;
-  }
+.user-message {
+  background-color: #d3f261;
+  margin-left: auto;
+}
 
-  .a-button--success {
-    background-color: #34c388 !important;
-    border-color: #34c388 !important;
-    font-size: 14px !important;
-  }
+.mqtt-message {
+  background-color: #69c0ff;
+}
 
-  .a-button--danger {
-    background-color: #f5222d !important;
-    border-color: #f5222d !important;
-  }
-
-  .a-form-item {
-    &.is-error {
-      .a-input__inner,
-      .a-textarea__inner {
-        box-shadow: 0 0 0 2px rgba(245, 34, 45, 0.2);
-      }
-    }
-    &.is-success {
-      .a-input__inner,
-      .a-textarea__inner {
-        border-color: #34c388 !important;
-      }
-    }
-  }
+.message-input {
+  margin-top: 20px;
 }
 </style>
