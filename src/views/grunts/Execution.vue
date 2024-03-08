@@ -41,6 +41,7 @@ export default {
       connection: {
         broker: this.mqttChannel.broker,
         topic: this.mqttChannel.topic,
+        websocket_url: this.mqttChannel.websocket_url,
         // for more options, please refer to https://github.com/mqttjs/MQTT.js#mqttclientstreambuilder-options
         clean: true,
         connectTimeout: 30 * 1000, // ms
@@ -95,8 +96,9 @@ export default {
       this.isConnecting = true
       try {
         // 假设的连接逻辑...
-        const connectUrl = `${this.connection.broker}/mqtt`
-        const { broker, topic, ...options } = this.connection
+        const connectUrl = `${this.connection.websocket_url}/mqtt`
+        // eslint-disable-next-line camelcase
+        const { broker, topic, websocket_url, ...options } = this.connection
         this.client = mqtt.connect(connectUrl, options)
         this.client.on('connect', () => {
           this.isConnecting = false
