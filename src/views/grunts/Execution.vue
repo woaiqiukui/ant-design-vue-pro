@@ -2,7 +2,7 @@
   <div class="home-container">
     <a-card class="control-card">
       <a-space>
-        <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected">连接</a-button>
+        <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected">连接至WebSocket通道</a-button>
         <a-button type="danger" @click="destroyConnection" :disabled="!client.connected">断开连接</a-button>
         <a-button type="default" @click="doSubscribe" :disabled="!client.connected || subscribeSuccess">订阅</a-button>
         <a-button type="warning" @click="doUnSubscribe" :disabled="!client.connected || !subscribeSuccess">取消订阅</a-button>
@@ -26,6 +26,7 @@
 
 <script>
 import mqtt from 'mqtt'
+import { getHistoryMessagesByClientId } from '@/api/mqtt_channel'
 
 export default {
   name: 'Execution',
@@ -39,25 +40,24 @@ export default {
     return {
       isConnecting: false,
       connection: {
-        broker: this.mqttChannel.broker,
-        topic: this.mqttChannel.topic,
-        websocket_url: this.mqttChannel.websocket_url,
+        broker: `${this.mqttChannel.emqx_broker_protocol}://${this.mqttChannel.emqx_broker_host}:${this.mqttChannel.emqx_broker_port}`,
+        websocket_url: `${this.mqttChannel.ws_broker_protocol}://${this.mqttChannel.ws_broker_host}:${this.mqttChannel.ws_broker_port}`,
         // for more options, please refer to https://github.com/mqttjs/MQTT.js#mqttclientstreambuilder-options
-        clean: true,
-        connectTimeout: 30 * 1000, // ms
-        reconnectPeriod: 4000, // ms
-        clientId: this.mqttChannel.client_id,
+        clean: this.mqttChannel.clean_start,
+        connectTimeout: this.mqttChannel.connect_timeout, // ms
+        reconnectPeriod: 1, // ms
+        clientId: '',
         // auth
         username: this.mqttChannel.username,
         password: this.mqttChannel.password
       },
       subscription: {
         topic: this.mqttChannel.result_send_topic,
-        qos: this.mqttChannel.qos
+        qos: this.mqttChannel.subscribe_qos
       },
       publish: {
         topic: this.mqttChannel.command_receive_topic,
-        qos: this.mqttChannel.qos
+        qos: this.mqttChannel.publish_qos
       },
       receiveNews: '',
       qosList: [0, 1, 2],
@@ -104,6 +104,7 @@ export default {
           this.isConnecting = false
           this.client.connected = true
           console.log('Connection succeeded!')
+          this.doSubscribe()
         })
         this.client.on('error', (error) => {
           this.isConnecting = false
@@ -125,6 +126,11 @@ export default {
     // subscribe topic
     // https://github.com/mqttjs/MQTT.js#mqttclientsubscribetopictopic-arraytopic-object-options-callback
     doSubscribe () {
+      if (!this.client.connected) {
+          this.$message.error('Client not connected, cannot publish.')
+          return
+        }
+
       const { topic, qos } = this.subscription
       this.client.subscribe(topic, { qos }, (error, res) => {
         if (error) {
@@ -183,6 +189,35 @@ export default {
 
       // 清空输入框
       this.newMessage = ''
+    },
+    generateClientId (length = 10) {
+      // 生成长度为length的随机字符串
+      let result = ''
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+      const charactersLength = characters.length
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength))
+      }
+      console.log('generateClientId', result)
+      return result
+    },
+    async fetchAndProcessHistoryMessages () {
+      try {
+        console.log('fetchAndProcessHistoryMessages', this.mqttChannel.client_id)
+        const historyMessages = await getHistoryMessagesByClientId(this.mqttChannel.client_id)
+        historyMessages.forEach((msg) => {
+          const isUserMessage = msg.client_id === this.mqttChannel.client_id // 假设 this.connection.clientId 存储了当前客户端的ID
+          const formattedMessage = {
+            text: msg.payload.replace(/^"|"$/g, ''), // 将换行符转换为实际的换行
+            isUser: !isUserMessage,
+            timestamp: new Date(msg.publish_received_at).toLocaleTimeString()
+          }
+          this.messages.push(formattedMessage)
+        })
+      } catch (error) {
+        console.error('Error fetching history messages:', error)
+        this.$message.error('Failed to load history messages.')
+      }
     }
   },
   updated () {
@@ -192,6 +227,13 @@ export default {
       // 这样最新的消息就会滚动到可视区域内
       messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
+  },
+  created () {
+    this.clientId = this.generateClientId()
+    this.fetchAndProcessHistoryMessages()
+  },
+  mounted () {
+    this.createConnection()
   }
 }
 </script>
@@ -209,20 +251,39 @@ export default {
   margin-bottom: 10px; /* 在消息之间添加一些间隙 */
   display: inline-block;
   max-width: 80%; /* 限制消息内容的最大宽度 */
+  background-color: #69c0ff; /* 默认背景色 */
+  color: white; /* 默认文字颜色 */
+  word-wrap: break-word; /* 确保长单词或URL不会溢出容器 */
 }
 
 .user-message {
   background-color: #d3f261; /* 用户消息的背景颜色 */
   color: black; /* 用户消息的字体颜色 */
-  margin-left: auto; /* 将用户消息对齐到右侧 */
-  text-align: right; /* 将文字内容对齐到右侧 */
+  text-align: right; /* 文字内容向右对齐 */
 }
 
-.mqtt-message {
-  background-color: #69c0ff; /* MQTT 消息的背景颜色 */
-  color: white; /* MQTT 消息的字体颜色 */
-  margin-right: auto; /* 将 MQTT 消息对齐到左侧 */
-  text-align: left; /* 将文字内容对齐到左侧 */
+.message {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.message.is-user .message-time {
+  text-align: right; /* 用户消息的时间靠右对齐 */
+}
+
+.message:not(.is-user) .message-time {
+  text-align: left; /* 其他消息的时间靠左对齐 */
+}
+
+.message.is-user .message-content {
+  margin-left: auto; /* 用户消息气泡靠右 */
+  background-color: #d3f261; /* 重新指定用户消息的背景颜色 */
+}
+
+.message:not(.is-user) .message-content {
+  margin-right: auto; /* 非用户消息气泡靠左 */
+  background-color: #69c0ff; /* 重新指定非用户消息的背景颜色 */
 }
 
 .messages {

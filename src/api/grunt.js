@@ -29,3 +29,10 @@ export function updateGruntName (parameter) {
     data: parameter
   })
 }
+
+export function deleteGruntByClientId (clientId) {
+  return request({
+    url: GruntUri + '/' + clientId,
+    method: 'delete'
+  })
+}

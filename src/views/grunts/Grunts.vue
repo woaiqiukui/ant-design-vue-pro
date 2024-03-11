@@ -95,7 +95,7 @@
             </a>
             <a-menu slot="overlay">
               <a-menu-item>
-                <a href="javascript:;">详情</a>
+                <a @click="deleteRow(record.key)">删除</a>
               </a-menu-item>
             </a-menu>
           </a-dropdown>
@@ -108,7 +108,8 @@
 <script>
 import moment from 'moment'
 import { STable } from '@/components'
-import { getGrunt } from '@/api/grunt'
+import { getGrunt, deleteGruntByClientId, updateGruntName } from '@/api/grunt'
+import { Modal, Input } from 'ant-design-vue'
 
 export default {
   name: 'GruntList',
@@ -123,23 +124,25 @@ export default {
       queryParam: {},
       // 表头
       columns: [
-        {
-          title: 'Name',
-          dataIndex: 'name',
-          width: 200,
-          customRender: (text) => {
-            return {
-              children: (
-                <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 200px;">
-                  {text}
-                </div>
-              ),
-              attrs: {
-                title: text // 鼠标悬停时显示的完整内容
-              }
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        customRender: (text, record) => {
+          return {
+            children: (
+              <div
+                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer"
+                onDblclick={() => this.handleNameEdit(record)}
+              >
+                {text}
+              </div>
+            ),
+            attrs: {
+              title: text // 鼠标悬停时显示的完整内容
             }
           }
-        },
+        }
+      },
         {
           title: 'OS',
           dataIndex: 'os'
@@ -154,7 +157,18 @@ export default {
         },
         {
           title: 'STATUS',
-          dataIndex: 'status'
+          dataIndex: 'status',
+          customRender: (text) => {
+            let color = 'geekblue'
+            if (text === 'Idle') {
+              color = 'green'
+            } else if (text === 'Working') {
+              color = 'orange'
+            } else if (text === 'Dead') {
+              color = 'red'
+            }
+            return <a-tag color={color}>{text}</a-tag>
+          }
         },
         {
           title: 'Username',
@@ -289,6 +303,60 @@ export default {
       this.handleEdit(record)
     },
 
+    deleteRow (key) {
+      // 假设你有一个删除方法来删除指定的grunt
+      deleteGruntByClientId(key).then(() => {
+        // 删除成功后刷新表格
+        this.$refs.table.refresh(true)
+      }).catch(error => {
+        // 错误处理
+        console.error('Error deleting grunt:', error)
+        // 根据你的实际需求来决定如何处理错误
+      })
+    },
+
+    handleNameEdit (record) {
+      let inputValue = record.name
+
+      const inputComponent = {
+        data () {
+          return {
+            // 不再需要这里存储value
+          }
+        },
+        render (h) {
+          return h(Input, {
+            props: {
+              value: inputValue
+            },
+            on: {
+              // 当输入值改变时更新inputValue
+              input: (event) => {
+                inputValue = event.target.value
+              }
+            }
+          })
+        }
+      }
+      Modal.confirm({
+        title: '请输入新的名称',
+        content: h => h(inputComponent),
+        onOk: () => {
+          const updatedInfo = {
+            client_id: record.key,
+            name: inputValue
+          }
+          console.log('updatedInfo', updatedInfo)
+          updateGruntName(updatedInfo).then(() => {
+            this.$message.success('名称更新成功')
+            this.$refs.table.refresh()
+          }).catch(error => {
+            console.error('更新失败', error)
+            this.$message.error('更新失败')
+          })
+        }
+      })
+    },
     resetSearchForm () {
       this.queryParam = {
         name: '',

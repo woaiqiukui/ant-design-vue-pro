@@ -179,11 +179,21 @@ export default {
       const date = new Date(timestamp)
       return date.toLocaleString() // 或者使用任何你喜欢的日期格式
     },
+    generateRandomString (length) {
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+      let result = ''
+      const charactersLength = characters.length
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength))
+      }
+      return result
+    },
     newListener () {
+      const randomName = this.generateRandomString(8)
       // 为表格添加一个新的空行，供用户填写信息
       const newData = {
         key: this.data.length + 1, // 确保 key 是唯一的
-        name: '', // 用户将填写的名称
+        name: randomName, // 用户将填写的名称
         protocol: 'Tcp', // 用户将选择的协议
         port: 90, // 用户将填写的端口
         address: '0.0.0.0', // 用户将填写的地址

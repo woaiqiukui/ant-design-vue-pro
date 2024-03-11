@@ -6,7 +6,9 @@
           <a-descriptions-item label="OS">{{ grunt.os }}</a-descriptions-item>
           <a-descriptions-item label="外部IP">{{ grunt.external_ip }}</a-descriptions-item>
           <a-descriptions-item label="内部IP">{{ grunt.internal_ip }}</a-descriptions-item>
-          <a-descriptions-item label="Grunt状态">{{ grunt.status }}</a-descriptions-item>
+          <a-descriptions-item label="Status">
+            <a-tag :color="getGruntStatusColor(grunt.status)">{{ mqtt_channel.status }}</a-tag>
+          </a-descriptions-item>
           <a-descriptions-item label="Username">{{ grunt.username }}</a-descriptions-item>
           <a-descriptions-item label="Pid">{{ grunt.pid }}</a-descriptions-item>
           <a-descriptions-item label="Process_Name">{{ grunt.process_name }}</a-descriptions-item>
@@ -20,10 +22,23 @@
       <a-card type="inner" title="Mqtt通道信息">
         <a-descriptions size="small" :column="isMobile ? 1 : 2">
           <a-descriptions-item label="Client_ID">{{ mqtt_channel.client_id }}</a-descriptions-item>
-          <a-descriptions-item label="Status">{{ mqtt_channel.status }}</a-descriptions-item>
-          <a-descriptions-item label="Broker">{{ mqtt_channel.broker }}</a-descriptions-item>
-          <a-descriptions-item label="Topic">{{ mqtt_channel.topic }}</a-descriptions-item>
-          <a-descriptions-item label="QOS">{{ mqtt_channel.qos }}</a-descriptions-item>
+          <a-descriptions-item label="Status">
+            <a-tag :color="getMqttStatusColor(mqtt_channel.status)">{{ mqtt_channel.status }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="MqttBroker">{{ formattedBrokerUrl }}</a-descriptions-item>
+          <a-descriptions-item label="WebsocketBroker">{{ formattedWebsocketBrokerUrl }}</a-descriptions-item>
+          <a-descriptions-item label="Mqtt_Version">{{ mqtt_channel.mqtt_version }}</a-descriptions-item>
+          <a-descriptions-item label="Connect_Timeout">{{ mqtt_channel.connect_timeout }}</a-descriptions-item>
+          <a-descriptions-item label="Keep_Alive">{{ mqtt_channel.keep_alive }}</a-descriptions-item>
+          <a-descriptions-item label="Auto_Reconnect">{{ mqtt_channel.auto_reconnect }}</a-descriptions-item>
+          <a-descriptions-item label="Min_Retry_Intervel">{{ mqtt_channel.min_retry_interval }}</a-descriptions-item>
+          <a-descriptions-item label="Max_Retry_Intervel">{{ mqtt_channel.max_retry_interval }}</a-descriptions-item>
+          <a-descriptions-item label="Clean_Start">{{ mqtt_channel.clean_start }}</a-descriptions-item>
+          <a-descriptions-item label="Last_Will_Qos">{{ mqtt_channel.last_will_qos }}</a-descriptions-item>
+          <a-descriptions-item label="Last_Will_Payload">{{ mqtt_channel.last_will_payload }}</a-descriptions-item>
+          <a-descriptions-item label="Publish_Qos">{{ mqtt_channel.publish_qos }}</a-descriptions-item>
+          <a-descriptions-item label="Subscribe_Qos">{{ mqtt_channel.subscribe_qos }}</a-descriptions-item>
+
           <a-descriptions-item label="Username">
             <template v-if="showUsername">{{ mqtt_channel.username }}</template>
             <template v-if="!showUsername">******</template>
@@ -43,7 +58,12 @@
               class="icon-spacing"
             ></a-icon>
           </a-descriptions-item>
+          <a-descriptions-item label="Command_Receive_Topic">{{ mqtt_channel.command_receive_topic }}</a-descriptions-item>
+          <a-descriptions-item label="Result_Send_Topic">{{ mqtt_channel.result_send_topic }}</a-descriptions-item>
+          <a-descriptions-item label="Forward_Command_Send_Topic">{{ mqtt_channel.forward_command_send_topic }}</a-descriptions-item>
+          <a-descriptions-item label="Forward_Result_Receive_Topic">{{ mqtt_channel.forward_result_receive_topic }}</a-descriptions-item>
           <a-descriptions-item label="创建时间">{{ formatDate(mqtt_channel.create_time) }}</a-descriptions-item>
+          <a-descriptions-item label="最近回连">{{ formatDate(mqtt_channel.last_seen) }}</a-descriptions-item>
         </a-descriptions>
       </a-card>
 
@@ -90,7 +110,17 @@ export default {
       grunt: null,
       mqtt_channel: null,
       showUsername: false,
-      showPassword: false
+      showPassword: false,
+      gruntStatusColorMapping: {
+        Idle: 'green',
+        Working: 'orange',
+        Dead: 'red'
+      },
+      mqttStatusColorMapping: {
+        Active: 'green',
+        Inactive: 'orange',
+        Destroyed: 'red'
+      }
     }
   },
   mounted () {
@@ -109,6 +139,18 @@ export default {
         default:
           return null
       }
+    },
+    formattedBrokerUrl () {
+      // eslint-disable-next-line camelcase
+      const { emqx_broker_protocol, emqx_broker_host, emqx_broker_port, emqx_broker_endpoint } = this.mqtt_channel
+      // eslint-disable-next-line camelcase
+      return `${emqx_broker_protocol}://${emqx_broker_host}:${emqx_broker_port}/${emqx_broker_endpoint}`
+    },
+    formattedWebsocketBrokerUrl () {
+      // eslint-disable-next-line camelcase
+      const { ws_broker_protocol, ws_broker_host, ws_broker_port } = this.mqtt_channel
+      // eslint-disable-next-line camelcase
+      return `${ws_broker_protocol}://${ws_broker_host}:${ws_broker_port}`
     }
   },
   methods: {
@@ -127,8 +169,15 @@ export default {
       })
     },
     formatDate (timestamp) {
-      const date = new Date(timestamp * 1000) // 转换为毫秒
+      // 检测时间戳长度，Unix 时间戳（秒）通常长度为10位，毫秒为13位
+      const date = new Date(timestamp.toString().length === 10 ? timestamp * 1000 : timestamp)
       return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+    },
+    getGruntStatusColor (status) {
+      return this.gruntStatusColorMapping[status] || 'default'
+    },
+    getMqttStatusColor (status) {
+      return this.mqttStatusColorMapping[status] || 'default'
     }
   }
 }

@@ -21,3 +21,10 @@ export function getMqttChannleByClentId (clientId) {
     }
   })
 }
+
+export function getHistoryMessagesByClientId (clientId) {
+  return request({
+    url: MqttUri + '/' + clientId + '/messages',
+    method: 'get'
+  })
+}
