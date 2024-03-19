@@ -2,7 +2,7 @@
   <div class="home-container">
     <a-card class="control-card">
       <a-space>
-        <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected">连接至WebSocket通道</a-button>
+        <a-button type="primary" @click="createConnection" :loading="isConnecting" :disabled="isConnecting || client.connected || !isMqttActive">连接至WebSocket通道</a-button>
         <a-button type="danger" @click="destroyConnection" :disabled="!client.connected">断开连接</a-button>
         <a-button type="default" @click="doSubscribe" :disabled="!client.connected || subscribeSuccess">订阅</a-button>
         <a-button type="warning" @click="doUnSubscribe" :disabled="!client.connected || !subscribeSuccess">取消订阅</a-button>
@@ -18,7 +18,7 @@
       </div>
       <div class="message-input">
         <a-input v-model="newMessage" placeholder="输入消息..." style="width: 80%"></a-input>
-        <a-button @click="sendNewMessage" type="primary">发送</a-button>
+        <a-button @click="sendNewMessage" type="primary" :disabled="!isMqttActive">发送</a-button>
       </div>
     </a-card>
   </div>
@@ -33,6 +33,10 @@ export default {
   props: {
     mqttChannel: {
       type: Object,
+      required: true
+    },
+    isMqttActive: {
+      type: Boolean,
       required: true
     }
   },
@@ -93,6 +97,11 @@ export default {
       }
     },
     createConnection () {
+      if (!this.isMqttActive) {
+        // 显示提示消息并退出方法
+        this.$message.error('Grunt已离线，通道已关闭')
+        return
+      }
       this.isConnecting = true
       try {
         // 假设的连接逻辑...
@@ -233,7 +242,9 @@ export default {
     this.fetchAndProcessHistoryMessages()
   },
   mounted () {
-    this.createConnection()
+    if (this.isMqttActive) { // 判断isMqttActive是否为true
+      this.createConnection()
+    }
   }
 }
 </script>

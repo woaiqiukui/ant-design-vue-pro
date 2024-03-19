@@ -74,7 +74,7 @@
       </a-tabs>
 
       <!-- 根据当前激活的 Tab 动态渲染组件 -->
-      <component :is="currentComponent" :mqttChannel="mqtt_channel"></component>
+      <component :is="currentComponent" :mqttChannel="mqtt_channel" :isMqttActive="isMqttActiveComputed"></component>
     </template>
   </page-header-wrapper>
 </template>
@@ -140,6 +140,10 @@ export default {
           return null
       }
     },
+    isMqttActiveComputed () {
+      // 假设 `status` 字段表示 MQTT 连接状态，并且当状态为 'Active' 时表示已连接
+      return this.mqtt_channel && this.mqtt_channel.status === 'Active'
+    },
     formattedBrokerUrl () {
       // eslint-disable-next-line camelcase
       const { emqx_broker_protocol, emqx_broker_host, emqx_broker_port, emqx_broker_endpoint } = this.mqtt_channel
@@ -155,7 +159,17 @@ export default {
   },
   methods: {
     handleTabChange (key) {
+      // 检查 MQTT 连接状态
+      if (!this.isMqttActive()) {
+        // 使用 Element UI 的 MessageBox 或者其他方式弹出提示
+        this.$message.error('Grunt已离线，通道已关闭')
+        return
+      }
       this.tabActiveKey = key
+    },
+    isMqttActive () {
+      // 假设 `status` 字段表示 MQTT 连接状态，并且当状态为 'Active' 时表示已连接
+      return this.mqtt_channel && this.mqtt_channel.status === 'Active'
     },
     fetchGruntData () {
       getGruntByClientId(this.gruntId).then((response) => {

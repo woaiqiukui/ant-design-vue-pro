@@ -291,8 +291,16 @@ export default {
     },
 
     formatDate (timestamp) {
-      // 使用moment库来格式化时间戳
-      return moment.unix(timestamp).format('YYYY-MM-DD HH:mm:ss')
+      // 自动检测时间戳单位并格式化
+      // 假定如果时间戳大于1e10，它是毫秒单位（大约在公元2001年后）
+      // 否则认为是秒单位
+      const isMilliseconds = timestamp > 1e10
+      const format = 'YYYY-MM-DD HH:mm:ss'
+      if (isMilliseconds) {
+        return moment(timestamp).format(format)
+      } else {
+        return moment.unix(timestamp).format(format)
+      }
     },
 
     toggleAdvanced () {
