@@ -160,11 +160,11 @@ export default {
   methods: {
     handleTabChange (key) {
       // 检查 MQTT 连接状态
-      if (!this.isMqttActive()) {
-        // 使用 Element UI 的 MessageBox 或者其他方式弹出提示
-        this.$message.error('Grunt已离线，通道已关闭')
-        return
-      }
+      // if (!this.isMqttActive()) {
+      //   // 使用 Element UI 的 MessageBox 或者其他方式弹出提示
+      //   this.$message.error('Grunt已离线，通道已关闭')
+      //   return
+      // }
       this.tabActiveKey = key
     },
     isMqttActive () {
