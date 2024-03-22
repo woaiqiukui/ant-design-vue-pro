@@ -20,6 +20,7 @@ import './core/lazy_use' // use lazy load components
 // import './permission' // permission control
 import './utils/filter' // global filter
 import './global.less' // global style
+import { setupAuthGuard } from './auth-guard' // 导入刚才创建的 auth-guard
 
 Vue.config.productionTip = false
 
@@ -31,6 +32,7 @@ Vue.component('page-container', PageHeaderWrapper)
 Vue.component('page-header-wrapper', PageHeaderWrapper)
 
 window.umi_plugin_ant_themeVar = themePluginConfig.theme
+setupAuthGuard(router) // 在 Vue 实例创建之前调用 setupAuthGuard 函数
 
 new Vue({
   router,

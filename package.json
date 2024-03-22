@@ -20,7 +20,7 @@
     "axios": "^0.26.1",
     "babel-loader": "8",
     "core-js": "^3.21.1",
-    "devextreme": "^23.2.4",
+    "devextreme": "^23.2.5",
     "devextreme-vue": "23.1",
     "enquire.js": "^2.1.6",
     "lodash.clonedeep": "^4.5.0",

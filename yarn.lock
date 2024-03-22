@@ -4760,10 +4760,10 @@ devextreme-vue@23.1:
   resolved "https://registry.npmmirror.com/devextreme-vue/-/devextreme-vue-23.1.8.tgz#04852623f9b05d5706491947b6da2e1c946d92bf"
   integrity sha512-p765km2aa26ea0buowZ49EQbwl7mVvr95Qwe4EnYfKgXFInjNSQHjdL3f2LpgKe2JSoU1kAHqgSk7WYmKDckPw==
 
-devextreme@^23.2.4:
-  version "23.2.4"
-  resolved "https://registry.npmmirror.com/devextreme/-/devextreme-23.2.4.tgz#0fb64994689fb0334638a3d3d6383c5db5cf7bb7"
-  integrity sha512-peMoEZGjELomWO1zWzn25uJEpC+4csntleJuIFno4/TbhBISXa1rm28dZt5pGKh+RnOhKy1A/wABpRJiC8stew==
+devextreme@^23.2.5:
+  version "23.2.5"
+  resolved "https://registry.npmjs.org/devextreme/-/devextreme-23.2.5.tgz#535ad99c93cf0bea58276a8909470e9fef776c4a"
+  integrity sha512-zYtewmdvpgEL2mSvODAg+/bC+WLG+3BPusSdnjHo1UFurTlIJzwmobsRQxo+VSrVLT7BEn9Tznt0ro0Qjrt5oQ==
   dependencies:
     "@babel/runtime" "^7.12.1"
     "@devextreme/runtime" "3.0.12"
