@@ -62,6 +62,10 @@
           <a-descriptions-item label="Result_Send_Topic">{{ mqtt_channel.result_send_topic }}</a-descriptions-item>
           <a-descriptions-item label="Forward_Command_Send_Topic">{{ mqtt_channel.forward_command_send_topic }}</a-descriptions-item>
           <a-descriptions-item label="Forward_Result_Receive_Topic">{{ mqtt_channel.forward_result_receive_topic }}</a-descriptions-item>
+          <a-descriptions-item label="File_Send_Topic">{{ mqtt_channel.file_send_topic }}</a-descriptions-item>
+          <a-descriptions-item label="File_Receive_Topic">{{ mqtt_channel.file_receive_topic }}</a-descriptions-item>
+          <a-descriptions-item label="File_Command_Send_Topic">{{ mqtt_channel.file_command_send_topic }}</a-descriptions-item>
+          <a-descriptions-item label="File_Command_Receive_Topic">{{ mqtt_channel.file_command_receive_topic }}</a-descriptions-item>
           <a-descriptions-item label="创建时间">{{ formatDate(mqtt_channel.create_time) }}</a-descriptions-item>
           <a-descriptions-item label="最近回连">{{ formatDate(mqtt_channel.last_seen) }}</a-descriptions-item>
         </a-descriptions>
