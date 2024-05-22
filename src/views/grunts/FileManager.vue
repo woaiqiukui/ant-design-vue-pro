@@ -1,9 +1,19 @@
 <template>
   <div>
+    <dx-load-panel
+      :visible="isLoading"
+      shading-color="rgba(0,0,0,0.4)"
+      message="Loading..."
+      :show-indicator="true"
+      :show-pane="true"
+      :shading="true"
+    ></dx-load-panel>
+
     <dx-file-manager
-      :file-system-provider="remoteProvider"
+      v-if="!isLoading"
+      :file-system-provider="customFileSystemProvider"
       :on-selected-file-opened="displayImagePopup"
-      current-path="Widescreen"
+      current-path="."
     >
       <dx-permissions
         :create="true"
@@ -32,9 +42,12 @@
 </template>
 
 <script>
-import { DxFileManager, DxPermissions } from 'devextreme-vue/file-manager'
+import { DxFileManager, DxPermissions, DxLoadPanel } from 'devextreme-vue/file-manager'
 import { DxPopup } from 'devextreme-vue/popup'
 import 'devextreme/dist/css/dx.light.css'
+import CustomFileSystemProvider from 'devextreme/file_management/custom_provider'
+import mqtt from 'mqtt'
+import folderIcon from '@/core/icons'
 
 export default {
   name: 'FileManager',
@@ -42,39 +55,41 @@ export default {
     mqttChannel: {
       type: Object,
       required: true
+    },
+    isMqttActive: {
+      type: Boolean,
+      required: true
     }
   },
   components: {
     DxFileManager,
     DxPermissions,
-    DxPopup
+    DxPopup,
+    DxLoadPanel
   },
   data () {
     return {
       popupVisible: false,
       imageItemToDisplay: {},
-      remoteProvider: this.initRemoteProvider(),
-      // 使用 customFileSystemProvider 作为 remoteProvider 的值
-      // remoteProvider: this.customFileSystemProvider
+      customFileSystemProvider: null,
       isConnecting: false,
+      isLoading: true,
       connection: {
         broker: `${this.mqttChannel.emqx_broker_protocol}://${this.mqttChannel.emqx_broker_host}:${this.mqttChannel.emqx_broker_port}`,
         websocket_url: `${this.mqttChannel.ws_broker_protocol}://${this.mqttChannel.ws_broker_host}:${this.mqttChannel.ws_broker_port}`,
-        // for more options, please refer to https://github.com/mqttjs/MQTT.js#mqttclientstreambuilder-options
         clean: this.mqttChannel.clean_start,
         connectTimeout: this.mqttChannel.connect_timeout, // ms
-        reconnectPeriod: 1, // ms
-        clientId: '',
-        // auth
+        reconnectPeriod: 10, // ms
+        clientId: this.generateClientId(),
         username: this.mqttChannel.username,
         password: this.mqttChannel.password
       },
-      file_subscription: {
-        topic: this.mqttChannel.file_receive_topic,
+      file_command_receive: {
+        topic: this.mqttChannel.file_command_receive_topic,
         qos: 1
       },
-      file_publish: {
-        topic: this.mqttChannel.file_send_topic,
+      file_command_send: {
+        topic: this.mqttChannel.file_command_send_topic,
         qos: 1
       },
       client: {
@@ -82,16 +97,51 @@ export default {
       },
       subscribeSuccess: false,
       connecting: false,
-      // 文件相关
-      currentDir: '.'
+      currentDir: '.',
+      retryCount: 0,
+      maxRetries: 5,
+      fileItems: []
     }
   },
   methods: {
-    initRemoteProvider () {
-      const RemoteFileSystemProvider = require('devextreme/file_management/remote_provider').default
-      return new RemoteFileSystemProvider({
-        endpointUrl: 'https://js.devexpress.com/Demos/Mvc/api/file-manager-file-system-images'
+    initCustomFileSystemProvider () {
+      const customFileSystemProvider = new CustomFileSystemProvider({
+        getItems: this.getItems,
+        createDirectory: this.createDirectory,
+        deleteItem: this.deleteItem,
+        renameItem: this.renameItem
       })
+      return customFileSystemProvider
+    },
+    getItems (parentDir) {
+      return new Promise((resolve, reject) => {
+        this.sendMqttCommand('DirectoryBrowse', [parentDir.path || '.'])
+          .then((response) => {
+            const fileItems = response.entries.map(item => ({
+              name: item.name,
+              isDirectory: item.is_directory,
+              size: item.size,
+              dateModified: new Date(item.date_modified),
+              thumbnail: item.thumbnail || folderIcon,
+              hasSubDirectories: item.has_sub_directories
+            }))
+            resolve(fileItems)
+          })
+          .catch(reject)
+      })
+    },
+    createDirectory (parentDir, name) {
+      return this.sendMqttCommand('DirectoryCreate', [`${parentDir.path}/${name}`])
+    },
+    deleteItem (item) {
+      if (item.isDirectory) {
+        return this.sendMqttCommand('DirectoryDelete', [item.path])
+      } else {
+        return this.sendMqttCommand('FileDelete', [item.path])
+      }
+    },
+    renameItem (item, name) {
+      return this.sendMqttCommand('RenameItem', [item.path, name])
     },
     displayImagePopup (e) {
       this.imageItemToDisplay = {
@@ -100,114 +150,129 @@ export default {
       }
       this.popupVisible = true
     },
-    initData () {
-      this.client = {
-        connected: false
-      }
-      this.connecting = false
-      this.subscribeSuccess = false
-    },
-    handleOnReConnect () {
-      this.retryTimes += 1
-      if (this.retryTimes > 5) {
-        try {
-          this.client.end()
-          this.initData()
-          this.$message.error('Connection maxReconnectTimes limit, stop retry')
-        } catch (error) {
-          this.$message.error(error.toString())
-        }
-      }
-    },
-    createConnection () {
-      // if (!this.isMqttActive) {
-      //   // 显示提示消息并退出方法
-      //   this.$message.error('Grunt已离线，通道已关闭')
-      //   return
-      // }
-      this.isConnecting = true
-      try {
-        const mqtt = require('mqtt')
-        this.client = mqtt.connect(this.connection)
-        this.client.on('connect', () => {
-          this.connecting = false
-          this.subscribeSuccess = true
-          this.$message.success('Connected to MQTT broker successfully')
-          this.client.subscribe(this.file_subscription.topic, { qos: this.file_subscription.qos }, (err) => {
+    sendMqttCommand (commandType, parameters) {
+      return new Promise((resolve, reject) => {
+        if (this.client.connected) {
+          const message = JSON.stringify({ command_type: commandType, parameters })
+          this.client.publish(this.file_command_send.topic, message, { qos: this.file_command_send.qos }, (err) => {
             if (err) {
-              this.$message.error(err.toString())
-            }
-          })
-        })
-        this.client.on('message', (topic, message) => {
-          this.$message.success(`Received message from topic: ${topic}`)
-          this.$message.success(`Message content: ${message.toString()}`)
-        })
-        this.client.on('error', (error) => {
-          this.$message.error(error.toString())
-        })
-        this.client.on('reconnect', () => {
-          this.handleOnReConnect()
-        })
-      } catch (error) {
-        this.$message.error(error.toString())
-      }
-    },
-    doUploadFile (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const fileContent = e.target.result
-        this.client.publish(this.file_publish.topic, fileContent, { qos: this.file_publish.qos }, (err) => {
-          if (err) {
-            this.$message.error(err.toString())
-          } else {
-            this.$message.success('File uploaded successfully')
-          }
-        })
-      }
-      reader.readAsArrayBuffer(file)
-    },
-    doDownloadFile (file) {
-      this.client.subscribe(this.file_subscription.topic, { qos: this.file_subscription.qos }, (err) => {
-        if (err) {
-          this.$message.error(err.toString())
-        } else {
-          this.client.publish(this.file_publish.topic, file, { qos: this.file_publish.qos }, (err) => {
-            if (err) {
-              this.$message.error(err.toString())
+              reject(err)
             } else {
-              this.$message.success('File downloaded successfully')
+              this.client.once('message', (topic, message) => {
+                if (topic === this.file_command_receive.topic) {
+                  try {
+                    const response = JSON.parse(message.toString())
+                    console.log('Received response:', response)
+                    resolve(response)
+                  } catch (error) {
+                    reject(error)
+                  }
+                }
+              })
             }
           })
+        } else {
+          reject(new Error('MQTT client is not connected'))
         }
       })
     },
-    destroyConnection () {
-      if (this.client.connected) {
-        try {
-          this.client.end(false, () => {
-            this.initData()
-            console.log('Successfully disconnected!')
-          })
-        } catch (error) {
-          console.log('Disconnect failed', error.toString())
-        }
+    createConnection () {
+      if (!this.isMqttActive) {
+        this.$message.error('Grunt已离线，通道已关闭')
+        return
+      }
+      this.isConnecting = true
+      this.retryCount = 0
+      try {
+        const connectUrl = `${this.connection.websocket_url}/mqtt`
+        // eslint-disable-next-line camelcase
+        const { broker, topic, websocket_url, ...options } = this.connection
+        this.client = mqtt.connect(connectUrl, options)
+        this.client.on('connect', () => {
+          this.isConnecting = false
+          this.client.connected = true
+          console.log('Connection succeeded!')
+          this.doSubscribe()
+          this.customFileSystemProvider = this.initCustomFileSystemProvider()
+          this.isLoading = false
+          this.queryCurrentPath()
+          this.browseDirectory(this.currentDir)
+        })
+        this.client.on('error', (error) => {
+          this.isConnecting = false
+          this.isLoading = false
+          console.log('Connection failed', error)
+        })
+        this.client.on('message', (topic, message) => {
+          console.log(`Received message from topic: ${topic}`, message.toString())
+        })
+        this.client.on('reconnect', () => {
+          this.retryCount++
+          if (this.retryCount > this.maxRetries) {
+            this.client.end()
+            console.error('Max reconnect attempts reached. Stopping retries.')
+          }
+        })
+      } catch (error) {
+        this.isLoading = false
+        console.error('Connection error:', error)
       }
     },
+    queryCurrentPath () {
+      this.sendMqttCommand('GetCurrentPath', []) // 发送获取当前路径的命令
+        .then((response) => {
+          this.currentDir = response // 将返回的路径设置为 currentPath
+        })
+        .catch((error) => {
+          console.error('Query current path error:', error)
+        })
+    },
     generateClientId (length = 10) {
-      // 生成长度为length的随机字符串
       let result = ''
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-      const charactersLength = characters.length
       for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength))
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
       }
-      console.log('generateClientId', result)
       return result
+    },
+    doSubscribe () {
+      if (!this.client.connected) {
+        this.$message.error('Client not connected, cannot publish.')
+        return
+      }
+      const { topic, qos } = this.file_command_receive
+      this.client.subscribe(topic, { qos }, (error, res) => {
+        if (error) {
+          console.log('Subscribe to topics error', error)
+          return
+        }
+        this.subscribeSuccess = true
+        console.log('Subscribe to topics res', res)
+      })
+    },
+    browseDirectory (path) {
+      this.sendMqttCommand('DirectoryBrowse', [path])
+        .then((response) => {
+          this.fileItems = response.entries.map(item => ({
+            name: item.name,
+            isDirectory: item.is_directory,
+            size: item.size,
+            dateModified: new Date(item.date_modified),
+            thumbnail: item.thumbnail || folderIcon,
+            hasSubDirectories: item.has_sub_directories
+          }))
+          // You can comment out this part if you do not want to automatically browse the first directory
+          // if (this.fileItems.length > 0 && this.fileItems[0].isDirectory) {
+          //   this.browseDirectory(this.fileItems[0].name)
+          // }
+        })
+        .catch((error) => {
+          console.error('Browse directory error:', error)
+        })
     }
   },
   created () {
-    this.clientId = this.generateClientId()
+    this.createConnection()
   }
 }
 </script>

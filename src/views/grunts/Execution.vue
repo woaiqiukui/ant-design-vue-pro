@@ -207,7 +207,6 @@ export default {
       for (let i = 0; i < length; i++) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength))
       }
-      console.log('generateClientId', result)
       return result
     },
     async fetchAndProcessHistoryMessages () {

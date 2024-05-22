@@ -145,7 +145,7 @@ export default {
       }
     },
     isMqttActiveComputed () {
-      // 假设 `status` 字段表示 MQTT 连接状态，并且当状态为 'Active' 时表示已连接
+      // eslint-disable-next-line camelcase
       return this.mqtt_channel && this.mqtt_channel.status === 'Active'
     },
     formattedBrokerUrl () {
@@ -163,17 +163,7 @@ export default {
   },
   methods: {
     handleTabChange (key) {
-      // 检查 MQTT 连接状态
-      // if (!this.isMqttActive()) {
-      //   // 使用 Element UI 的 MessageBox 或者其他方式弹出提示
-      //   this.$message.error('Grunt已离线，通道已关闭')
-      //   return
-      // }
       this.tabActiveKey = key
-    },
-    isMqttActive () {
-      // 假设 `status` 字段表示 MQTT 连接状态，并且当状态为 'Active' 时表示已连接
-      return this.mqtt_channel && this.mqtt_channel.status === 'Active'
     },
     fetchGruntData () {
       getGruntByClientId(this.gruntId).then((response) => {
@@ -181,9 +171,9 @@ export default {
       })
     },
     fetchMqttData () {
-      getMqttChannleByClentId(this.gruntId).then((resopnse) => {
-        console.log(resopnse)
-        this.mqtt_channel = resopnse
+      getMqttChannleByClentId(this.gruntId).then((response) => {
+        console.log(response)
+        this.mqtt_channel = response
       })
     },
     formatDate (timestamp) {
@@ -201,8 +191,7 @@ export default {
 }
 </script>
 <style>
-/* 其他样式保持不变 */
 .icon-spacing {
-  margin-left: 8px; /* 或者根据你的设计需求调整 */
+  margin-left: 8px;
 }
-</style>@/api/mqtt_channel
+</style>

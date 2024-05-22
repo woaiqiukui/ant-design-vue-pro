@@ -9,5 +9,6 @@
 import bxAnaalyse from '@/assets/icons/bx-analyse.svg?inline' // path to your '*.svg?inline' file.
 import listenerIcon from '@/assets/icons/listener.svg?inline'
 import gruntIcon from '@/assets/icons/grunt.svg?inline'
+import folderIcon from '@/assets/icons/folder.svg?inline'
 
-export { bxAnaalyse, listenerIcon, gruntIcon }
+export { bxAnaalyse, listenerIcon, gruntIcon, folderIcon }
