@@ -3,6 +3,7 @@ import expirePlugin from 'store/plugins/expire'
 import { login, logout } from '@/api/login'
 import { ACCESS_TOKEN, USER_AVATAR, USER_NAME, WELCOME } from '@/store/mutation-types'
 import { welcome } from '@/utils/util'
+import router from '@/router' // 引入 Vue Router
 
 storage.addPlugin(expirePlugin)
 const user = {
@@ -95,7 +96,7 @@ const user = {
           commit('SET_TOKEN', '')
           commit('SET_NAME', '')
           commit('SET_AVATAR', '')
-          commit('SET_ROLES', [])
+          // commit('SET_ROLES', [])
           storage.remove(ACCESS_TOKEN)
           storage.remove(USER_NAME)
           storage.remove(USER_AVATAR)
@@ -103,8 +104,18 @@ const user = {
           resolve()
         }).catch((err) => {
           console.log('logout fail:', err)
-          // resolve()
+          if (err.response && err.response.status === 500) {
+            router.push({ path: '/user/login' }) // 跳转到登录页面
+          }
         }).finally(() => {
+          // 清理状态
+          commit('SET_TOKEN', '')
+          commit('SET_NAME', '')
+          commit('SET_AVATAR', '')
+          storage.remove(ACCESS_TOKEN)
+          storage.remove(USER_NAME)
+          storage.remove(USER_AVATAR)
+          storage.remove(WELCOME)
         })
       })
     }

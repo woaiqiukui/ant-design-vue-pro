@@ -12,8 +12,9 @@
     <dx-file-manager
       v-if="!isLoading"
       :file-system-provider="customFileSystemProvider"
+      :on-current-directory-changed="updateCurrentDir"
       :on-selected-file-opened="displayImagePopup"
-      current-path="."
+      :current-path="currentDir"
     >
       <dx-permissions
         :create="true"
@@ -70,7 +71,10 @@ export default {
   data () {
     return {
       popupVisible: false,
-      imageItemToDisplay: {},
+      imageItemToDisplay: {
+        name: '',
+        url: ''
+      },
       customFileSystemProvider: null,
       isConnecting: false,
       isLoading: true,
@@ -97,13 +101,22 @@ export default {
       },
       subscribeSuccess: false,
       connecting: false,
-      currentDir: '.',
+      currentDir: '/', // 设置初始路径为根目录
+      initialDir: '', // 保存查询到的初始目录
       retryCount: 0,
       maxRetries: 5,
       fileItems: []
     }
   },
   methods: {
+    generateClientId (length = 10) {
+      let result = ''
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+      return result
+    },
     initCustomFileSystemProvider () {
       const customFileSystemProvider = new CustomFileSystemProvider({
         getItems: this.getItems,
@@ -114,18 +127,26 @@ export default {
       return customFileSystemProvider
     },
     getItems (parentDir) {
+      const parentPath = parentDir && parentDir.path ? parentDir.dataItem.path : '/'
+      console.log(parentDir)
       return new Promise((resolve, reject) => {
-        this.sendMqttCommand('DirectoryBrowse', [parentDir.path || '.'])
+        this.sendMqttCommand('DirectoryBrowse', [parentPath])
           .then((response) => {
-            const fileItems = response.entries.map(item => ({
-              name: item.name,
-              isDirectory: item.is_directory,
-              size: item.size,
-              dateModified: new Date(item.date_modified),
-              thumbnail: item.thumbnail || folderIcon,
-              hasSubDirectories: item.has_sub_directories
-            }))
-            resolve(fileItems)
+            if (response.entries && Array.isArray(response.entries)) {
+              const fileItems = response.entries.map(item => ({
+                name: item.name,
+                isDirectory: item.is_directory,
+                size: item.size,
+                dateModified: new Date(item.date_modified),
+                thumbnail: item.thumbnail || folderIcon,
+                hasSubDirectories: item.has_sub_directories,
+                path: `${parentPath}/${item.name}` // 保留完整的路径信息
+              }))
+              resolve(fileItems)
+            } else {
+              console.error('Invalid response format:', response)
+              reject(new Error('Invalid response format'))
+            }
           })
           .catch(reject)
       })
@@ -150,6 +171,11 @@ export default {
       }
       this.popupVisible = true
     },
+    updateCurrentDir (e) {
+      this.currentDir = e.component.option('currentPath')
+      console.log('Current directory:', this.currentDir)
+      // this.browseDirectory(this.currentDir) // 每次更新当前目录时浏览该目录
+    },
     sendMqttCommand (commandType, parameters) {
       return new Promise((resolve, reject) => {
         if (this.client.connected) {
@@ -162,7 +188,7 @@ export default {
                 if (topic === this.file_command_receive.topic) {
                   try {
                     const response = JSON.parse(message.toString())
-                    console.log('Received response:', response)
+                    // console.log('Received response:', response)
                     resolve(response)
                   } catch (error) {
                     reject(error)
@@ -176,7 +202,7 @@ export default {
         }
       })
     },
-    createConnection () {
+    async createConnection () {
       if (!this.isMqttActive) {
         this.$message.error('Grunt已离线，通道已关闭')
         return
@@ -188,15 +214,15 @@ export default {
         // eslint-disable-next-line camelcase
         const { broker, topic, websocket_url, ...options } = this.connection
         this.client = mqtt.connect(connectUrl, options)
-        this.client.on('connect', () => {
+        this.client.on('connect', async () => {
           this.isConnecting = false
           this.client.connected = true
           console.log('Connection succeeded!')
           this.doSubscribe()
-          this.customFileSystemProvider = this.initCustomFileSystemProvider()
+          await this.queryCurrentPath() // 查询当前路径
+          this.customFileSystemProvider = this.initCustomFileSystemProvider() // 初始化文件系统提供者
           this.isLoading = false
-          this.queryCurrentPath()
-          this.browseDirectory(this.currentDir)
+          await this.browseToInitialPath() // 浏览到初始路径
         })
         this.client.on('error', (error) => {
           this.isConnecting = false
@@ -204,7 +230,7 @@ export default {
           console.log('Connection failed', error)
         })
         this.client.on('message', (topic, message) => {
-          console.log(`Received message from topic: ${topic}`, message.toString())
+          // console.log(`Received message from topic: ${topic}`, message.toString())
         })
         this.client.on('reconnect', () => {
           this.retryCount++
@@ -217,23 +243,6 @@ export default {
         this.isLoading = false
         console.error('Connection error:', error)
       }
-    },
-    queryCurrentPath () {
-      this.sendMqttCommand('GetCurrentPath', []) // 发送获取当前路径的命令
-        .then((response) => {
-          this.currentDir = response // 将返回的路径设置为 currentPath
-        })
-        .catch((error) => {
-          console.error('Query current path error:', error)
-        })
-    },
-    generateClientId (length = 10) {
-      let result = ''
-      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-      for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
-      }
-      return result
     },
     doSubscribe () {
       if (!this.client.connected) {
@@ -250,25 +259,56 @@ export default {
         console.log('Subscribe to topics res', res)
       })
     },
+    async queryCurrentPath () {
+      try {
+        const response = await this.sendMqttCommand('GetCurrentPath', [])
+        this.initialDir = response // 将返回的路径设置为 initialDir
+        console.log('Initial Path:', this.initialDir)
+      } catch (error) {
+        console.error('Query current path error:', error)
+      }
+    },
+    async browseToInitialPath () {
+      const pathSegments = this.initialDir.split('/').filter(segment => segment)
+      let currentPath = '/'
+      for (const segment of pathSegments) {
+        currentPath = `${currentPath}${segment}`
+        try {
+          await this.browseDirectory(currentPath)
+        } catch (error) {
+          console.error(`Failed to browse directory: ${currentPath}`, error)
+          break
+        }
+        currentPath += '/' // Ensure there's a trailing slash for directories
+      }
+      this.currentDir = this.initialDir
+    },
     browseDirectory (path) {
-      this.sendMqttCommand('DirectoryBrowse', [path])
-        .then((response) => {
-          this.fileItems = response.entries.map(item => ({
-            name: item.name,
-            isDirectory: item.is_directory,
-            size: item.size,
-            dateModified: new Date(item.date_modified),
-            thumbnail: item.thumbnail || folderIcon,
-            hasSubDirectories: item.has_sub_directories
-          }))
-          // You can comment out this part if you do not want to automatically browse the first directory
-          // if (this.fileItems.length > 0 && this.fileItems[0].isDirectory) {
-          //   this.browseDirectory(this.fileItems[0].name)
-          // }
-        })
-        .catch((error) => {
-          console.error('Browse directory error:', error)
-        })
+      return new Promise((resolve, reject) => {
+        this.sendMqttCommand('DirectoryBrowse', [path])
+          .then((response) => {
+            if (response.entries && Array.isArray(response.entries)) {
+              this.fileItems = response.entries.map(item => ({
+                name: item.name,
+                isDirectory: item.is_directory,
+                size: item.size,
+                dateModified: new Date(item.date_modified),
+                thumbnail: item.thumbnail || folderIcon,
+                hasSubDirectories: item.has_sub_directories,
+                path: `${path}/${item.name}` // 保留完整的路径信息
+              }))
+              this.$forceUpdate() // 强制 Vue 重新渲染组件
+              resolve()
+            } else {
+              console.error('Invalid response format:', response)
+              reject(new Error('Invalid response format'))
+            }
+          })
+          .catch((error) => {
+            console.error('Browse directory error:', error)
+            reject(error)
+          })
+      })
     }
   },
   created () {

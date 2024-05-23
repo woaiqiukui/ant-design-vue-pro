@@ -4,6 +4,7 @@ import storage from 'store'
 import notification from 'ant-design-vue/es/notification'
 import { VueAxios } from './axios'
 import { ACCESS_TOKEN } from '@/store/mutation-types'
+import router from '@/router' // 引入 Vue Router
 
 // 创建 axios 实例
 const request = axios.create({
@@ -34,7 +35,18 @@ const errorHandler = (error) => {
           setTimeout(() => {
             window.location.reload()
           }, 1500)
+        }).catch(logoutError => {
+          if (logoutError.response && logoutError.response.status === 500) {
+            console.log('An internal server error occurred during logout. Please login again.')
+            notification.error({
+              message: 'Server Error',
+              description: 'An internal server error occurred during logout. Please login again.'
+            })
+            router.push({ path: '/user/login' }) // 跳转到登录页面
+          }
         })
+      } else {
+        router.push({ path: '/user/login' }) // 跳转到登录页面
       }
     }
   }
