@@ -10,6 +10,7 @@
     ></dx-load-panel>
 
     <dx-file-manager
+      ref="fileManager"
       v-if="!isLoading"
       :file-system-provider="customFileSystemProvider"
       :on-current-directory-changed="updateCurrentDir"
@@ -103,6 +104,7 @@ export default {
       connecting: false,
       currentDir: '/', // 设置初始路径为根目录
       initialDir: '', // 保存查询到的初始目录
+      rootPath: '',
       retryCount: 0,
       maxRetries: 5,
       fileItems: []
@@ -122,13 +124,15 @@ export default {
         getItems: this.getItems,
         createDirectory: this.createDirectory,
         deleteItem: this.deleteItem,
-        renameItem: this.renameItem
+        renameItem: this.renameItem,
+        moveItem: this.moveItem,
+        copyItem: this.copyItem
       })
       return customFileSystemProvider
     },
     getItems (parentDir) {
       const parentPath = parentDir && parentDir.path ? parentDir.dataItem.path : '/'
-      console.log(parentDir)
+      console.log(parentPath)
       return new Promise((resolve, reject) => {
         this.sendMqttCommand('DirectoryBrowse', [parentPath])
           .then((response) => {
@@ -152,17 +156,32 @@ export default {
       })
     },
     createDirectory (parentDir, name) {
-      return this.sendMqttCommand('DirectoryCreate', [`${parentDir.path}/${name}`])
+      const fullPath = `${this.rootPath}${parentDir.path}/${name}`
+      console.log('Creating directory:', fullPath)
+      return this.sendMqttCommand('DirectoryCreate', [fullPath])
     },
     deleteItem (item) {
+      const fullPath = `${this.rootPath}${item.path}`
+
       if (item.isDirectory) {
-        return this.sendMqttCommand('DirectoryDelete', [item.path])
+        return this.sendMqttCommand('DirectoryDelete', [fullPath])
       } else {
-        return this.sendMqttCommand('FileDelete', [item.path])
+        return this.sendMqttCommand('FileDelete', [fullPath])
       }
     },
     renameItem (item, name) {
-      return this.sendMqttCommand('RenameItem', [item.path, name])
+      const fullPath = `${this.rootPath}${item.path}`
+      return this.sendMqttCommand('RenameItem', [fullPath, name])
+    },
+    moveItem (item, destinationDir) {
+      const sourcePath = `${this.rootPath}${item.path}`
+      const destinationPath = `${this.rootPath}${destinationDir.path}/${item.name}`
+      return this.sendMqttCommand('MoveItem', [sourcePath, destinationPath])
+    },
+    copyItem (item, destinationDir) {
+      const sourcePath = `${this.rootPath}${item.path}`
+      const destinationPath = `${this.rootPath}${destinationDir.path}/${item.name}`
+      return this.sendMqttCommand('CopyItem', [sourcePath, destinationPath])
     },
     displayImagePopup (e) {
       this.imageItemToDisplay = {
@@ -263,6 +282,7 @@ export default {
       try {
         const response = await this.sendMqttCommand('GetCurrentPath', [])
         this.initialDir = response // 将返回的路径设置为 initialDir
+        this.rootPath = response.split('/')[0] || '/'
         console.log('Initial Path:', this.initialDir)
       } catch (error) {
         console.error('Query current path error:', error)
@@ -270,18 +290,22 @@ export default {
     },
     async browseToInitialPath () {
       const pathSegments = this.initialDir.split('/').filter(segment => segment)
-      let currentPath = '/'
+      let currentPath = this.rootPath // 使用动态设置的根路径
+
       for (const segment of pathSegments) {
-        currentPath = `${currentPath}${segment}`
+        currentPath = `${currentPath}${segment}/` // 将当前路径设置为当前路径段
         try {
-          await this.browseDirectory(currentPath)
+          await this.getItems({ dataItem: { path: currentPath } }) // 调用 getItems 获取当前路径的内容
         } catch (error) {
           console.error(`Failed to browse directory: ${currentPath}`, error)
           break
         }
-        currentPath += '/' // Ensure there's a trailing slash for directories
       }
+
       this.currentDir = this.initialDir
+      this.$nextTick(() => {
+        this.$refs.fileManager.instance.refresh() // 手动触发文件管理器的重绘
+      })
     },
     browseDirectory (path) {
       return new Promise((resolve, reject) => {
