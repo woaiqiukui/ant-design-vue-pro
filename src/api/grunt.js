@@ -2,13 +2,14 @@ import request from '@/utils/request'
 
 const GruntUri = '/task/grunts'
 
-export function getGrunt () {
+export function getGrunt (params) {
   return request({
     url: GruntUri,
     method: 'get',
     headers: {
       'Content-Type': 'application/json;charset=UTF-8'
-    }
+    },
+    params // 将参数添加到请求中
   })
 }
 

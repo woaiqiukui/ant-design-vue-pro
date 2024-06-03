@@ -11,7 +11,7 @@
             </a-col>
             <a-col :md="8" :sm="24">
               <a-form-item label="Grunt 状态">
-                <a-select v-model="queryParam.status" placeholder="请选择" default-value="0">
+                <a-select v-model="queryParam.status" placeholder="请选择">
                   <a-select-option value="Idle">Idle</a-select-option>
                   <a-select-option value="Working">Working</a-select-option>
                   <a-select-option value="Dead">Dead</a-select-option>
@@ -47,8 +47,8 @@
           <!-- Buttons Row -->
           <a-row :gutter="48">
             <a-col :span="24">
-              <span class="table-page-search-submitButtons" style="float: right;">
-                <a-button type="primary" @click="$refs.table.refresh(true)">查询</a-button>
+              <span class="table-page-search-submitButtons" style="float: right">
+                <a-button type="primary" @click="fetchData">查询</a-button>
                 <a-button style="margin-left: 8px" @click="resetSearchForm">重置</a-button>
                 <a @click="toggleAdvanced" style="margin-left: 8px">
                   {{ advanced ? '收起' : '展开' }}
@@ -64,7 +64,6 @@
         <a-dropdown v-action:edit v-if="selectedRowKeys.length > 0">
           <a-menu slot="overlay">
             <a-menu-item key="1"><a-icon type="delete" />删除</a-menu-item>
-            <!-- lock | unlock -->
             <a-menu-item key="2"><a-icon type="lock" />锁定</a-menu-item>
           </a-menu>
           <a-button style="margin-left: 8px">
@@ -73,17 +72,15 @@
         </a-dropdown>
       </div>
 
-      <s-table
-        ref="table"
-        size="default"
-        rowKey="key"
+      <a-table
         :columns="columns"
-        :data="loadData"
-        :rowSelection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
+        :data-source="data"
+        :pagination="pagination"
+        :loading="loading"
+        :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
         :scroll="{ x: 'max-content' }"
-        @row-dblclick="handleRowDblclick"
+        @change="handleTableChange"
       >
-
         <span slot="action" slot-scope="text, record">
           <template>
             <a @click="handleEdit(record)">详情</a>
@@ -100,127 +97,187 @@
             </a-menu>
           </a-dropdown>
         </span>
-      </s-table>
+      </a-table>
     </template>
   </a-card>
 </template>
 
 <script>
 import moment from 'moment'
-import { STable } from '@/components'
 import { getGrunt, deleteGruntByClientId, updateGruntName } from '@/api/grunt'
 import { Modal, Input } from 'ant-design-vue'
 
 export default {
   name: 'GruntList',
-  components: {
-    STable
-  },
   data () {
     return {
-      // 高级搜索 展开/关闭
       advanced: false,
-      // 查询参数
       queryParam: {},
-      // 表头
-      columns: [
-      {
-        title: 'Name',
-        dataIndex: 'name',
-        customRender: (text, record) => {
-          return {
-            children: (
-              <div
-                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer"
-                onDblclick={() => this.handleNameEdit(record)}
-              >
-                {text}
-              </div>
-            ),
-            attrs: {
-              title: text // 鼠标悬停时显示的完整内容
-            }
-          }
-        }
+      data: [],
+      loading: false,
+      selectedRowKeys: [],
+      pagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showQuickJumper: true,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50', '100']
       },
+      columns: [
+        {
+          title: 'Name',
+          dataIndex: 'name',
+          key: 'name',
+          width: 100,
+          customRender: (text, record) => {
+            return {
+              children: (
+                <div
+                  style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer"
+                  onDblclick={() => this.handleNameEdit(record)}
+                >
+                  {text}
+                </div>
+              ),
+              attrs: {
+                title: text // 鼠标悬停时显示的完整内容
+              }
+            }
+          },
+          ellipsis: true,
+          fixed: 'left'
+        },
+        {
+          title: 'External IP',
+          dataIndex: 'external_ip',
+          key: 'external_ip',
+          width: 100,
+          scopedSlots: { customRender: 'external_ip' },
+          ellipsis: true
+        },
+        {
+          title: 'Internal IP',
+          dataIndex: 'internal_ip',
+          key: 'internal_ip',
+          width: 100,
+          scopedSlots: { customRender: 'internal_ip' },
+          ellipsis: true
+        },
         {
           title: 'OS',
-          dataIndex: 'os'
-        },
-        {
-          title: 'External_IP',
-          dataIndex: 'external_ip'
-        },
-        {
-          title: 'Internal_IP',
-          dataIndex: 'internal_ip'
-        },
-        {
-          title: 'STATUS',
-          dataIndex: 'status',
-          customRender: (text) => {
-            let color = 'geekblue'
-            if (text === 'Idle') {
-              color = 'green'
-            } else if (text === 'Working') {
-              color = 'orange'
-            } else if (text === 'Dead') {
-              color = 'red'
-            }
-            return <a-tag color={color}>{text}</a-tag>
-          }
+          dataIndex: 'os',
+          key: 'os',
+          width: 100,
+          ellipsis: true
         },
         {
           title: 'Username',
-          dataIndex: 'username'
+          dataIndex: 'username',
+          key: 'username',
+          width: 100,
+          ellipsis: true
         },
         {
           title: 'PID',
-          dataIndex: 'pid'
+          dataIndex: 'pid',
+          key: 'pid',
+          width: 100,
+          ellipsis: true
         },
         {
-          title: 'Process_Name',
-          dataIndex: 'process_name'
+          title: 'Process Name',
+          dataIndex: 'process_name',
+          key: 'process_name',
+          width: 100,
+          ellipsis: true
         },
         {
           title: 'CPU',
-          dataIndex: 'cpu'
+          dataIndex: 'cpu',
+          key: 'cpu',
+          width: 100,
+          ellipsis: true
         },
         {
           title: 'Memory',
-          dataIndex: 'memory'
+          dataIndex: 'memory',
+          key: 'memory',
+          width: 100,
+          ellipsis: true
         },
         {
           title: 'Hostname',
-          dataIndex: 'hostname'
+          dataIndex: 'hostname',
+          key: 'hostname',
+          width: 100,
+          ellipsis: true
         },
         {
-          title: 'Last_Seen',
-          dataIndex: 'last_seen',
-          sorter: true
-        },
-        {
-          title: 'Create_Time',
+          title: 'Create Time',
           dataIndex: 'create_time',
-          sorter: true
+          key: 'create_time',
+          width: 100,
+          ellipsis: true
+          // customRender: (text) => this.formatDate(text)
         },
         {
-          title: '操作',
-          dataIndex: 'action',
-          width: '150px',
-          scopedSlots: { customRender: 'action' }
+          title: 'Last Seen',
+          dataIndex: 'last_seen',
+          key: 'last_seen',
+          width: 100,
+          ellipsis: true
+          // customRender: (text) => this.formatDate(text)
+        },
+        {
+          title: 'Status',
+          dataIndex: 'status',
+          key: 'status',
+          width: 100,
+          ellipsis: true,
+          customRender: (text) => {
+            return <a-tag color={this.statusColor(text)}>{text}</a-tag>
+          },
+          fixed: 'right'
+        },
+        {
+          title: 'Action',
+          key: 'action',
+          width: 100,
+          scopedSlots: { customRender: 'action' },
+          fixed: 'right'
         }
-      ],
-      selectedRowKeys: [],
-      selectedRows: []
+      ]
     }
   },
   methods: {
-    loadData (parameter) {
-      return getGrunt().then(response => {
-        // 这里假设response是包含所有grunt对象的数组
-        let filteredData = response
+    statusColor (status) {
+      console.log('status:', status)
+      switch (status) {
+        case 'Idle':
+          return 'yellow'
+        case 'Working':
+          return 'green'
+        case 'Dead':
+          return 'red'
+        default:
+          return 'blue'
+      }
+    },
+    fetchData (resetPage = false) {
+      if (resetPage) {
+        this.pagination.current = 1
+      }
+      this.loadData({ pagination: this.pagination })
+    },
+    async loadData (parameter) {
+      this.loading = true
+      const pagination = parameter.pagination
 
+      try {
+        const response = await getGrunt({ page: pagination.current, page_size: pagination.pageSize })
+        let filteredData = response.data
+        const { pageNo, pageSize, totalCount } = response
         // 在这里根据queryParam来过滤数据
         if (this.queryParam.name) {
           filteredData = filteredData.filter(item => item.name.includes(this.queryParam.name))
@@ -266,71 +323,56 @@ export default {
           create_time: this.formatDate(item.create_time)
         }))
 
-        return {
-          data: mappedData, // 表格数据
-          total: response.length // 假设response数组的长度就是数据的总数
-        }
-      }).catch(error => {
-        // 错误处理
+        this.pagination.current = pageNo
+        this.pagination.pageSize = pageSize
+        this.pagination.total = totalCount
+
+        this.data = mappedData
+      } catch (error) {
         console.error('Error fetching data:', error)
-        // 根据你的实际需求来决定如何处理错误
-        // 这里可以返回一个空数组或其他默认值，以避免进一步的错误
-        return { data: [], total: 0 }
+      } finally {
+        this.loading = false
+      }
+    },
+    handleTableChange (pagination, filters, sorter) {
+      this.pagination = pagination
+      this.loadData({
+        pagination,
+        filters,
+        sorter
       })
     },
-
     onSelectChange (selectedRowKeys, selectedRows) {
       this.selectedRowKeys = selectedRowKeys
       this.selectedRows = selectedRows
     },
-
     handleEdit (record) {
-      // 假设record对象包含了grunt的id
-      console.log(record)
       this.$router.push({ path: `/grunts/${record.key}` })
     },
-
     formatDate (timestamp) {
-      // 自动检测时间戳单位并格式化
-      // 假定如果时间戳大于1e10，它是毫秒单位（大约在公元2001年后）
-      // 否则认为是秒单位
       const isMilliseconds = timestamp > 1e10
       const format = 'YYYY-MM-DD HH:mm:ss'
-      if (isMilliseconds) {
-        return moment(timestamp).format(format)
-      } else {
-        return moment.unix(timestamp).format(format)
-      }
+      return isMilliseconds ? moment(timestamp).format(format) : moment.unix(timestamp).format(format)
     },
-
     toggleAdvanced () {
       this.advanced = !this.advanced
     },
-
     handleRowDblclick (record) {
       this.handleEdit(record)
     },
-
     deleteRow (key) {
-      // 假设你有一个删除方法来删除指定的grunt
       deleteGruntByClientId(key).then(() => {
-        // 删除成功后刷新表格
-        this.$refs.table.refresh(true)
+        this.fetchData()
       }).catch(error => {
-        // 错误处理
         console.error('Error deleting grunt:', error)
-        // 根据你的实际需求来决定如何处理错误
       })
     },
-
     handleNameEdit (record) {
       let inputValue = record.name
 
       const inputComponent = {
         data () {
-          return {
-            // 不再需要这里存储value
-          }
+          return {}
         },
         render (h) {
           return h(Input, {
@@ -338,7 +380,6 @@ export default {
               value: inputValue
             },
             on: {
-              // 当输入值改变时更新inputValue
               input: (event) => {
                 inputValue = event.target.value
               }
@@ -354,10 +395,9 @@ export default {
             client_id: record.key,
             name: inputValue
           }
-          console.log('updatedInfo', updatedInfo)
           updateGruntName(updatedInfo).then(() => {
             this.$message.success('名称更新成功')
-            this.$refs.table.refresh()
+            this.fetchData()
           }).catch(error => {
             console.error('更新失败', error)
             this.$message.error('更新失败')
@@ -375,6 +415,19 @@ export default {
         create_time: null
       }
     }
+  },
+  mounted () {
+    this.fetchData()
   }
 }
 </script>
+
+<style scoped>
+.ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+</style>
