@@ -132,7 +132,6 @@ export default {
     },
     getItems (parentDir) {
       const parentPath = parentDir && parentDir.path ? parentDir.dataItem.path : '/'
-      console.log(parentPath)
       return new Promise((resolve, reject) => {
         this.sendMqttCommand('DirectoryBrowse', [parentPath])
           .then((response) => {
@@ -157,7 +156,6 @@ export default {
     },
     createDirectory (parentDir, name) {
       const fullPath = `${this.rootPath}${parentDir.path}/${name}`
-      console.log('Creating directory:', fullPath)
       return this.sendMqttCommand('DirectoryCreate', [fullPath])
     },
     deleteItem (item) {
@@ -192,7 +190,6 @@ export default {
     },
     updateCurrentDir (e) {
       this.currentDir = e.component.option('currentPath')
-      console.log('Current directory:', this.currentDir)
       // this.browseDirectory(this.currentDir) // 每次更新当前目录时浏览该目录
     },
     sendMqttCommand (commandType, parameters) {
